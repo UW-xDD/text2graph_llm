@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "text2graph_llm"
+description = "convert text to graph with llm"
+dynamic = ["version"]
+authors = [
+  {name = "Jason Lo", email = "lcmjlo@gmail.com"},
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+
+dependencies = [
+  "hatchling == 1.21.1",
+  "ollama == 0.1.6"
+]
+
+[project.urls]
+Repository = "https://github.com/UW-xDD/text2graph_llm"
+
+[tool.hatch.version]
+path = "text2graph/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["text2graph"]

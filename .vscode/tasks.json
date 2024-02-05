@@ -1,0 +1,17 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "rsync-data-push",
+            "type": "shell",
+            "command": "rsync -r ./data clo36@submit1.chtc.wisc.edu:/staging/clo36/text2graph/"
+        },
+        {
+            "label": "rsync-data-pull",
+            "type": "shell",
+            "command": "rsync -r clo36@submit1.chtc.wisc.edu:/staging/clo36/text2graph/data ./"
+        }
+    ]
+}
