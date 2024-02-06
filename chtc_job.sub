@@ -1,0 +1,38 @@
+JobBatchName            = "LLM batch inference"
+
+# arguments is: sweep_id
+arguments               = deebyffp
+
+universe                = docker
+docker_image            = ghcr.io/jasonlo/text2graph_llm:v240205
+docker_network_type     = host
+
+# Artefact
+Requirements            = (Target.HasCHTCStaging == true)
+executable              = chtc_run.sh
+transfer_input_files    = .env
+should_transfer_files   = YES
+transfer_output_files   = ""
+
+# Logging
+stream_output           = true
+output                  = condor_log/output.$(Cluster)-$(Process).txt
+error                   = condor_log/error.$(Cluster)-$(Process).txt
+log                     = condor_log/log.$(Cluster)-$(Process).txt
+
+# Compute resources
+request_cpus            = 2
+request_memory          = 32GB
+request_disk            = 200GB
+
+# Extra GPU settings
+request_gpus            = 1
+require_gpus            = GlobalMemoryMb >= 30000
+Requirements            = (Target.CUDADriverVersion >= 10.1)
++WantGPULab             = true
+# +WantFlocking           = true
+# +WantGlidein            = true
++GPUJobLength           = "short"
+
+# Runs
+queue 2
