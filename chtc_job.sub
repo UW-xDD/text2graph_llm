@@ -1,9 +1,12 @@
-JobBatchName            = "LLM batch inference - testing"
+JobBatchName            = "LLM batch inference (testing)"
 
+# Frequently changed params
+docker_image            = ghcr.io/jasonlo/text2graph_llm:v240206
 arguments               = --run_name testing --batch_size 10 --start_index $(idx)
+queue idx in 0, 10, 20
 
+# Environment
 universe                = docker
-docker_image            = ghcr.io/jasonlo/text2graph_llm:v240205
 docker_network_type     = host
 
 # Artefact
@@ -30,6 +33,3 @@ require_gpus            = GlobalMemoryMb >= 30000
 Requirements            = (Target.CUDADriverVersion >= 10.1)
 +WantGPULab             = true
 +GPUJobLength           = "short"
-
-# Runs parameterized (idx) batch
-queue idx in 0, 10, 20
