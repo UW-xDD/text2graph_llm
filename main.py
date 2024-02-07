@@ -5,7 +5,7 @@ import argparse
 import hashlib
 import os
 from tqdm import tqdm
-from text2graph.database import create_table
+from text2graph.database import create_table, insert_record
 from text2graph.prompt import SYSTEM_PROMPT, get_user_prompt
 
 logging.basicConfig(level=logging.DEBUG)
@@ -13,14 +13,14 @@ logging.basicConfig(level=logging.DEBUG)
 def run(run_name: str, batch_size: int, start_index:int) -> None:
     """Run a batch of inference."""
 
-    input_file = os.getenv("INPUT_FILE")
+    INPUT_FILE = os.getenv("INPUT_FILE")
 
     # Calculate input file md5
-    with open("data/formation_sample.parquet.gzip", "rb") as f:
+    with open(INPUT_FILE, "rb") as f:
         df_md5 = hashlib.md5(f.read()).hexdigest()
 
     # Load batch
-    df = pd.read_parquet('data/formation_sample.parquet.gzip')
+    df = pd.read_parquet(INPUT_FILE)
     df = df.iloc[start_index:start_index+batch_size]
 
     # Create table if not exists
@@ -33,6 +33,7 @@ def run(run_name: str, batch_size: int, start_index:int) -> None:
             "formation_name": row["formation_name"],
             "paper_id": row["paper_id"]
         }
+        logging.info(f"Processing: {meta}")
 
         user_prompt = get_user_prompt(row["paragraph"])
 
@@ -40,6 +41,7 @@ def run(run_name: str, batch_size: int, start_index:int) -> None:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}
         ]
+        logging.info(f"Messages: {messages}")
 
         response = ollama.chat(model="mixtral", messages=messages)
 

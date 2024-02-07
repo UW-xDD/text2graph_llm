@@ -9,7 +9,7 @@ docker_network_type     = host
 # Artefact
 Requirements            = (Target.HasCHTCStaging == true)
 executable              = chtc_run.sh
-transfer_input_files    = .env, chtc_run.sh, main.py
+transfer_input_files    = chtc_run.sh, main.py
 should_transfer_files   = YES
 transfer_output_files   = ""
 
@@ -31,4 +31,4 @@ Requirements            = (Target.CUDADriverVersion >= 10.1)
 +WantGPULab             = true
 +GPUJobLength           = "short"
 
-queue idx in 0, 10, 20
+queue idx in 0
