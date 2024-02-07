@@ -18,6 +18,7 @@ dependencies = [
   "ollama == 0.1.6",
   "python-dotenv == 1.0.1",
   "pandas == 2.2.0",
+  "pyarrow == 15.0.0",
   "fastparquet == 2023.10.1",
   "tqdm == 4.66.1"
 ]
