@@ -30,7 +30,7 @@ def create_table(name: str) -> None:
     )
 
 
-def insert_record(table_name: str, meta: dict, input: dict, output: dict) -> None:
+def insert_record(table_name: str, meta: dict, input: list[dict], output: dict) -> None:
     """Insert a record into the table."""
     cursor = SQLITE_CONNECTION.cursor()
 

@@ -1,7 +1,6 @@
-JobBatchName            = "LLM batch inference"
+JobBatchName            = "LLM batch inference - testing"
 
-# arguments is: sweep_id
-arguments               = deebyffp
+arguments               = --run_name testing --batch_size 10 --start_index $(idx)
 
 universe                = docker
 docker_image            = ghcr.io/jasonlo/text2graph_llm:v240205
@@ -10,7 +9,7 @@ docker_network_type     = host
 # Artefact
 Requirements            = (Target.HasCHTCStaging == true)
 executable              = chtc_run.sh
-transfer_input_files    = .env
+transfer_input_files    = .env, chtc_run.sh, main.py
 should_transfer_files   = YES
 transfer_output_files   = ""
 
@@ -30,9 +29,7 @@ request_gpus            = 1
 require_gpus            = GlobalMemoryMb >= 30000
 Requirements            = (Target.CUDADriverVersion >= 10.1)
 +WantGPULab             = true
-# +WantFlocking           = true
-# +WantGlidein            = true
 +GPUJobLength           = "short"
 
-# Runs
-queue 2
+# Runs parameterized (idx) batch
+queue idx in 0, 10, 20
