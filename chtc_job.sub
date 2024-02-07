@@ -1,12 +1,9 @@
 JobBatchName            = "LLM batch inference (testing)"
-
-# Frequently changed params
-docker_image            = ghcr.io/jasonlo/text2graph_llm:v240206
 arguments               = --run_name testing --batch_size 10 --start_index $(idx)
-queue idx in 0, 10, 20
 
 # Environment
 universe                = docker
+docker_image            = ghcr.io/jasonlo/text2graph_llm:latest
 docker_network_type     = host
 
 # Artefact
@@ -25,7 +22,7 @@ log                     = condor_log/log.$(Cluster)-$(Process).txt
 # Compute resources
 request_cpus            = 2
 request_memory          = 32GB
-request_disk            = 200GB
+request_disk            = 50GB
 
 # Extra GPU settings
 request_gpus            = 1
@@ -33,3 +30,5 @@ require_gpus            = GlobalMemoryMb >= 30000
 Requirements            = (Target.CUDADriverVersion >= 10.1)
 +WantGPULab             = true
 +GPUJobLength           = "short"
+
+queue idx in 0, 10, 20
