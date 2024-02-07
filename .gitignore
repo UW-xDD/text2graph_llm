@@ -1,3 +1,4 @@
+condor_log/*.txt
 .ollama/
 tmp.ipynb
 
