@@ -1,23 +1,27 @@
 import pandas as pd
 import logging
 import argparse
-import hashlib
 import requests
-import os
-from tqdm import tqdm
+import multiprocessing
 from text2graph.database import create_table, insert_record
 from text2graph.prompt import SYSTEM_PROMPT, get_user_prompt
 
 logging.basicConfig(level=logging.DEBUG)
+OLLAMA_PORTS = [11434, 11435, 11436, 11437, 11438, 11439]
 
 
-def ask_mixtral(messages: list[dict], json: bool = False) -> str:
+def split_dataframe(df: pd.DataFrame, splits: int) -> list[pd.DataFrame]:
+    n = len(df)
+    return [df[i * n // splits : (i + 1) * n // splits] for i in range(splits)]
+
+
+def ask_mixtral(messages: list[dict], json: bool = False, port: int = 11434) -> str:
     """Ask mixtral with a data package.
 
     Example input: [{"role": "user", "content": "Hello world example in python."}]
 
     """
-    url = "http://localhost:11434/api/chat"
+    url = f"http://localhost:{port}/api/chat"
 
     data = {
         "model": "mixtral",
@@ -31,58 +35,53 @@ def ask_mixtral(messages: list[dict], json: bool = False) -> str:
     if json:
         data["format"] = "json"
 
-    # Non-streaming mode
     response = requests.post(url, json=data)
     response.raise_for_status()
-    # return response.json()["message"]["content"]
     return response.json()
 
 
-def run(run_name: str, batch_size: int, start_index: int) -> None:
+def run_batch(run_name: str, batch_df: pd.DataFrame, port: int) -> None:
     """Run a batch of inference."""
 
-    INPUT_FILE = os.getenv("INPUT_FILE")
+    for id, row in batch_df.iterrows():
 
-    # Calculate input file md5
-    with open(INPUT_FILE, "rb") as f:
-        df_md5 = hashlib.md5(f.read()).hexdigest()
-
-    # Load batch
-    df = pd.read_parquet(INPUT_FILE)
-    df = df.iloc[start_index : start_index + batch_size]
-
-    # Create table if not exists
-    create_table(run_name)
-
-    for index, row in tqdm(df.iterrows()):
-        meta = {
-            "df_md5": df_md5,
-            "index": index,
-            "formation_name": row["formation_name"],
-            "paper_id": row["paper_id"],
-        }
-        logging.info(f"Processing: {meta}")
-
+        logging.info(f"Processing: {id}")
         user_prompt = get_user_prompt(row["paragraph"])
-
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ]
-        logging.info(f"Messages: {messages}")
 
-        response = ask_mixtral(messages)
+        logging.info(f"Messages: {messages}")
+        response = ask_mixtral(messages, port=port)
 
         # Push to database
-        insert_record(table_name=run_name, meta=meta, input=messages, output=response)
+        insert_record(table_name=run_name, id=id, input=messages, output=response)
+
+
+def run(run_name: str, input_file: str, workers: int = 6) -> None:
+    """Run a batch of inference."""
+
+    create_table(run_name)
+
+    # Input file
+    df = pd.read_parquet(input_file)
+    batch_dfs = split_dataframe(df, workers)
+
+    # Run the inference
+    with multiprocessing.Pool(workers) as pool:
+        pool.starmap(
+            run_batch,
+            [(run_name, chunk, OLLAMA_PORTS[i]) for i, chunk in enumerate(batch_dfs)],
+        )
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Run llm inference.")
     parser.add_argument("--run_name", type=str, help="Name of the run")
-    parser.add_argument("--batch_size", type=int, help="Batch size")
-    parser.add_argument("--start_index", type=int, help="Start index")
+    parser.add_argument("--input_file", type=str, help="Input file")
+    parser.add_argument("--workers", type=int, help="Number of workers")
 
     settings = vars(parser.parse_args())
     logging.info(f"Settings: {settings}")
