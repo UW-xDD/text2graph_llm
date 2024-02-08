@@ -1,11 +1,39 @@
 version: '3.8'
 
 services:
+  ollama0:
+    container_name: ollama0
+    image: ollama/ollama:latest
+    ports:
+      - "12000:11434"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ '0' ]
   ollama1:
     container_name: ollama1
     image: ollama/ollama:latest
     ports:
-      - "11434:11434"
+      - "12001:11434"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ '1' ]
+  ollama2:
+    container_name: ollama2
+    image: ollama/ollama:latest
+    ports:
+      - "12002:11434"
     volumes:
       - ollama:/root/.ollama
     deploy:
@@ -15,11 +43,11 @@ services:
             - driver: nvidia
               capabilities: [ gpu ]
               device_ids: [ '2' ]
-  ollama2:
-    container_name: ollama2
+  ollama3:
+    container_name: ollama3
     image: ollama/ollama:latest
     ports:
-      - "11435:11434"
+      - "12003:11434"
     volumes:
       - ollama:/root/.ollama
     deploy:
@@ -29,11 +57,11 @@ services:
             - driver: nvidia
               capabilities: [ gpu ]
               device_ids: [ '3' ]
-  ollama3:
-    container_name: ollama3
+  ollama4:
+    container_name: ollama4
     image: ollama/ollama:latest
     ports:
-      - "11436:11434"
+      - "12004:11434"
     volumes:
       - ollama:/root/.ollama
     deploy:
@@ -43,11 +71,11 @@ services:
             - driver: nvidia
               capabilities: [ gpu ]
               device_ids: [ '4' ]
-  ollama4:
-    container_name: ollama4
+  ollama5:
+    container_name: ollama5
     image: ollama/ollama:latest
     ports:
-      - "11437:11434"
+      - "12005:11434"
     volumes:
       - ollama:/root/.ollama
     deploy:
@@ -57,11 +85,11 @@ services:
             - driver: nvidia
               capabilities: [ gpu ]
               device_ids: [ '5' ]
-  ollama5:
-    container_name: ollama5
+  ollama6:
+    container_name: ollama6
     image: ollama/ollama:latest
     ports:
-      - "11438:11434"
+      - "12006:11434"
     volumes:
       - ollama:/root/.ollama
     deploy:
@@ -71,11 +99,11 @@ services:
             - driver: nvidia
               capabilities: [ gpu ]
               device_ids: [ '6' ]
-  ollama6:
-    container_name: ollama6
+  ollama7:
+    container_name: ollama7
     image: ollama/ollama:latest
     ports:
-      - "11439:11434"
+      - "12007:11434"
     volumes:
       - ollama:/root/.ollama
     deploy:
