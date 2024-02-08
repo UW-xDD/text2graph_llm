@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  ollama1:
+    container_name: ollama1
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ '2' ]
+  ollama2:
+    container_name: ollama2
+    image: ollama/ollama:latest
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ '3' ]
+  ollama3:
+    container_name: ollama3
+    image: ollama/ollama:latest
+    ports:
+      - "11436:11434"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ '4' ]
+  ollama4:
+    container_name: ollama4
+    image: ollama/ollama:latest
+    ports:
+      - "11437:11434"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ '5' ]
+  ollama5:
+    container_name: ollama5
+    image: ollama/ollama:latest
+    ports:
+      - "11438:11434"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ '6' ]
+  ollama6:
+    container_name: ollama6
+    image: ollama/ollama:latest
+    ports:
+      - "11439:11434"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ '7' ]
+
+volumes:
+  ollama:
+
+
