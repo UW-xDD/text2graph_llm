@@ -14,8 +14,11 @@ ln -s /staging/clo36/.ollama ~/.ollama
 
 # Start ollama
 ollama serve &
+
+# Wait for ollama to be fully started
 sleep 10
 ollama pull mixtral
+echo "this is a warm up query" | ollama run mixtral
 
 # Run the job
 python main.py $1 $2 $3 $4 $5 $6

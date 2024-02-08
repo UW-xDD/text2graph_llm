@@ -3,7 +3,7 @@ arguments               = --run_name testing --batch_size 10 --start_index $(idx
 
 # Environment
 universe                = docker
-docker_image            = ghcr.io/jasonlo/text2graph_llm:latest
+docker_image            = ghcr.io/jasonlo/text2graph_llm:v240208
 docker_network_type     = host
 
 # Artefact
