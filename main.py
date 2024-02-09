@@ -4,11 +4,15 @@ import argparse
 import requests
 import sqlite3
 import multiprocessing
+import tenacity
 from text2graph.database import create_table, insert_record
 from text2graph.prompt import SYSTEM_PROMPT, get_user_prompt
 
-logging.basicConfig(level=logging.DEBUG)
-OLLAMA_PORTS = list(range(12000, 12000 + 8))
+logging.basicConfig(level=logging.INFO)
+OLLAMA_PORTS = [12000, 12001, 12002, 12003, 12004, 12005, 12007]
+WORKERS = len(OLLAMA_PORTS)
+MIXTRAL_TIMEOUT = 30
+# OLLAMA_PORTS = [12005, 12007]
 CONN = sqlite3.connect("data/eval.db")
 
 
@@ -24,7 +28,13 @@ def split_dataframe(df: pd.DataFrame, splits: int) -> list[pd.DataFrame]:
     return [df[i * n // splits : (i + 1) * n // splits] for i in range(splits)]
 
 
-def ask_mixtral(messages: list[dict], json: bool = False, port: int = 11434) -> str:
+@tenacity.retry(
+    wait=tenacity.wait_random_exponential(min=3, max=60),
+    stop=tenacity.stop_after_attempt(6),
+)
+def ask_mixtral(
+    messages: list[dict], json: bool = False, port: int = 11434, timeout: int = 120
+) -> str:
     """Ask mixtral with a data package.
 
     Example input: [{"role": "user", "content": "Hello world example in python."}]
@@ -44,7 +54,7 @@ def ask_mixtral(messages: list[dict], json: bool = False, port: int = 11434) -> 
     if json:
         data["format"] = "json"
 
-    response = requests.post(url, json=data)
+    response = requests.post(url, json=data, timeout=timeout)
     response.raise_for_status()
     return response.json()
 
@@ -56,16 +66,16 @@ def run_batch(
 
     for _, row in batch_df.iterrows():
 
-        logging.info(f"Processing: {id}")
+        logging.info(f"Processing: {row[id_row]}")
         user_prompt = get_user_prompt(row["paragraph"])
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ]
 
-        logging.info(f"Messages: {messages}")
+        logging.debug(f"Messages: {messages}")
         try:
-            response = ask_mixtral(messages, port=port)
+            response = ask_mixtral(messages, port=port, timeout=MIXTRAL_TIMEOUT)
         except Exception as e:
             logging.error(f"Error: {e}")
             continue
@@ -79,7 +89,7 @@ def run_batch(
         )
 
 
-def run(run_name: str, input_file: str, workers: int = 6) -> None:
+def run(run_name: str, input_file: str) -> None:
     """Run a batch of inference."""
 
     create_table(run_name)
@@ -92,11 +102,11 @@ def run(run_name: str, input_file: str, workers: int = 6) -> None:
     completed = get_ids_from_db(run_name)
     df = df[~df["original_index"].isin(completed)].reset_index(drop=True)
 
-    batch_dfs = split_dataframe(df, workers)
+    batch_dfs = split_dataframe(df, WORKERS)
     logging.info(f"Batch sizes: {[len(chunk) for chunk in batch_dfs]}")
 
     # Run the inference
-    with multiprocessing.Pool(workers) as pool:
+    with multiprocessing.Pool(WORKERS) as pool:
         pool.starmap(
             run_batch,
             [
@@ -111,7 +121,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run llm inference.")
     parser.add_argument("--run_name", type=str, help="Name of the run")
     parser.add_argument("--input_file", type=str, help="Input file")
-    parser.add_argument("--workers", type=int, help="Number of workers")
 
     settings = vars(parser.parse_args())
     logging.info(f"Settings: {settings}")
