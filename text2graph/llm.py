@@ -1,24 +1,36 @@
 import requests
 import os
+from enum import Enum
 from dotenv import load_dotenv
 load_dotenv()
 
-def ask_mixtral(messages: list[dict]) -> dict:
-    """Ask mixtral with a data package.
+class OpenSourceModel(Enum):
+    """Supported open-source language models."""
+    MIXTRAL = "mixtral"
+    OPENHERMES = "openhermes"
+
+def ask_llm(messages: list[dict], model: OpenSourceModel | str = "mixtral", temperature: float = 0.0) -> dict:
+    """Ask model with a data package.
 
     Example input: [{"role": "user", "content": "Hello world example in python."}]
     """
-    url = os.getenv("MIXTRAL_URL")
-    user = os.getenv("MIXTRAL_USER")
-    password = os.getenv("MIXTRAL_PASSWORD")
+    # Validate supported models
+    if isinstance(model, str):
+        try:
+            model = OpenSourceModel(model.lower())
+        except ValueError:
+            raise ValueError(f"Model '{model}' is not supported.")
+
+    url = os.getenv("OLLAMA_URL")
+    user = os.getenv("OLLAMA_USER")
+    password = os.getenv("OLLAMA_PASSWORD")
     data = {
-        "model": "mixtral",
+        "model": model.value,
         "messages": messages,
-        "stream": False,  # set to True to get a stream of responses token-by-token
+        "temperature": temperature,
+        "stream": False,
     }
     # Non-streaming mode
-    response = requests.post(
-        url, auth=requests.auth.HTTPBasicAuth(user, password), json=data
-    )
+    response = requests.post(url, auth=requests.auth.HTTPBasicAuth(user, password), json=data)
     response.raise_for_status()
     return response.json()["message"]["content"]
