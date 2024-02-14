@@ -3,12 +3,6 @@ def get_user_prompt(text: str) -> str:
     """Return the user prompt."""
     return f"context: ```{text}``` \n\n output: "
 
-def get_mixtral_instruct_prompt(text: str, instruction: str) -> str:
-    """Instruct format prompting.
-
-    see: https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1
-    """
-    return f"<s> [INST] {instruction} [/INST] </s> {text}"
 
 SYSTEM_PROMPT = (
     "You are a network graph maker who extracts terms and their relations from a given context. "

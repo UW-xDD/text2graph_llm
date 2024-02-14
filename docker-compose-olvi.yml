@@ -85,7 +85,7 @@ services:
             - driver: nvidia
               capabilities: [ gpu ]
               device_ids: [ '5' ]
-  # ollama6:
+  # ollama6: # Broken GPU
   #   container_name: ollama6
   #   image: ollama/ollama:latest
   #   ports:
