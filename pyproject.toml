@@ -34,4 +34,4 @@ Repository = "https://github.com/UW-xDD/text2graph_llm"
 path = "text2graph/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["text2graph"]
+include = ["text2graph/*.py"]
