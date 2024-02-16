@@ -8,8 +8,8 @@ docker_network_type     = host
 
 # Artefact
 Requirements            = (Target.HasCHTCStaging == true)
-executable              = chtc_run.sh
-transfer_input_files    = chtc_run.sh, main.py
+executable              = job.sh
+transfer_input_files    = job.sh, job.py
 should_transfer_files   = YES
 transfer_output_files   = ""
 

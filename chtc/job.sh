@@ -21,4 +21,4 @@ ollama pull mixtral
 echo "this is a warm up query" | ollama run mixtral
 
 # Run the job
-python main.py $1 $2 $3 $4 $5 $6
+python job.py $1 $2 $3 $4 $5 $6
