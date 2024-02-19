@@ -7,7 +7,7 @@ from text2graph import llm
 
 logging.basicConfig(level=logging.INFO)
 
-API_KEY = os.getenv("APIKEY")
+API_KEY = os.getenv("API_KEY")
 api_key_header = APIKeyHeader(name="Api-Key")
 
 

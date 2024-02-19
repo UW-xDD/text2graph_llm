@@ -5,7 +5,7 @@ RUN pip install --upgrade pip
 # API
 WORKDIR /app
 COPY api/requirements.txt /tmp/requirements.txt
-RUN pip install -r /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY api/ .
 COPY text2graph ./text2graph
 COPY pyproject.toml .

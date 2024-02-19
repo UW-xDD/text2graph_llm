@@ -20,5 +20,5 @@ services:
     build:
       dockerfile: ./api/Dockerfile
     ports:
-      - 4502:4502
+      - $API_PORT:4502
     env_file: .env
