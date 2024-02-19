@@ -10,10 +10,13 @@ class Prompt(Protocol):
     def get_messages(self, text: str) -> list[dict]: ...
 
 
-def create_messages(system_prompt: str, user_prompt: str) -> list[dict]:
-    system_prompt = {"role": "system", "content": system_prompt}
-    user_prompt = {"role": "user", "content": user_prompt}
-    return [system_prompt, user_prompt]
+def create_messages(user_prompt: str, system_prompt: str | None) -> list[dict]:
+    system_message = {"role": "system", "content": system_prompt}
+    user_message = {"role": "user", "content": user_prompt}
+
+    if system_prompt is None:
+        return [user_message]
+    return [system_message, user_message]
 
 
 class V0Prompt:
@@ -24,7 +27,7 @@ class V0Prompt:
         return "You are a geology expert and you are very good in understanding mining reports. Think step by step: What locations are mentioned in the following paragraph? and What geological entities are associated with those locations? Return in json format like this: {'location1': ['entity1', 'entity2', ...], 'location2': ['entity3', 'entity4', ...]}. Return an empty dictionary if there is no location."
 
     def get_messages(self, text: str) -> list[dict]:
-        return create_messages(self.system_prompt, text)
+        return create_messages(user_prompt=text, system_prompt=self.system_prompt)
 
 
 IainBasePrompt = """
@@ -33,13 +36,13 @@ Following the given examples use the provided context to create a JSON formatted
 
 examples:
 Context: The Waldron Shale is in Indiana
-Response: [{"name": "Indiana", "type": "state", "stratigraphic_units": ["The Waldron Shale"]\}]
+Response: [{"name": "Indiana", "type": "state", "stratigraphic_units": ["The Waldron Shale"]}]
 
 Context:  The Grand Canyon runs through Arizona
-Response:  [\{"name": "The Grand Canyon", "type": "geological-feature", "stratigraphic_units": []\}, \{"name": "Arizona", "type": "state", "stratigraphic_units": []\}]
+Response:  [{"name": "The Grand Canyon", "type": "geological-feature", "stratigraphic_units": []}, {"name": "Arizona", "type": "state", "stratigraphic_units": []}]
 
 Context:  The Laramie Formation is exposed around the edges of the Denver Basin and ranges from 400–500 feet (120–150 m) on the western side of the basin, and 200–300 feet (60–90 m) thick on the eastern side. It rests conformably on the Fox Hills Sandstone and unconformably underlies the Arapahoe Conglomerate.
-Response: [\{"name": "The Denver Basin", "type": "geological-feature", "stratigraphic_units": ["The Laramie Formation", "Fox Hills Sandstone", "Arapahoe Conglomerate"]\}]
+Response: [{"name": "The Denver Basin", "type": "geological-feature", "stratigraphic_units": ["The Laramie Formation", "Fox Hills Sandstone", "Arapahoe Conglomerate"]}]
 
 provided context:
 """
@@ -52,8 +55,11 @@ class IainPrompt:
     def system_prompt(self) -> str:
         return None
 
+    def get_user_prompt(self, text: str) -> str:
+        return IainBasePrompt + text
+
     def get_messages(self, text: str) -> list[dict]:
-        return IainPrompt + text
+        return create_messages(user_prompt=self.get_user_prompt(text), system_prompt=self.system_prompt)
 
 
 class BillPrompt:
@@ -86,4 +92,4 @@ class BillPrompt:
         )
 
     def get_messages(self, text: str) -> list[dict]:
-        return create_messages(self.system_prompt, text)
+        return create_messages(user_prompt=text, system_prompt=self.system_prompt)

@@ -43,8 +43,12 @@ async def root():
 @app.post(
     "/llm_graph",
     dependencies=[Depends(has_valid_api_key)],
-    response_model=LocationResponse,
+    # response_model=LocationResponse,  # Avoid validating output for now, need a better json parser in text2graph.llm.llm_graph
     tags=["LLM"],
 )
 async def llm_graph(request: GraphRequest):
-    return llm.llm_graph(request.text, request.model)
+    try:
+        return llm.llm_graph(request.text, request.model)
+    except Exception as e:
+        logging.error(f"Failed to process request: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e)

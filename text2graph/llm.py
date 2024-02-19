@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 
-from .prompt import V0Prompt
+from .prompt import V0Prompt, IainPrompt
 
 load_dotenv()
 
@@ -26,7 +26,13 @@ class OpenAIModel(Enum):
     GPT4T = "gpt-4-turbo-preview"
 
 
-PROMPT_MAPPING = {0: V0Prompt}
+PROMPT_MAPPING = {
+    "mixtral": V0Prompt,
+    "openhermes": V0Prompt,
+    "gpt-3.5-turbo": IainPrompt,
+    "gpt-4": IainPrompt,
+    "gpt-4-turbo-preview": IainPrompt
+}
 
 
 def ask_llm(
@@ -88,9 +94,9 @@ def query_ollama(
 
 
 # API layer function logic
-def llm_graph(text: str, model: str, version: int = 0) -> str:
+def llm_graph(text: str, model: str) -> str:
     """Core function for llm_graph endpoint."""
-    prompt_creator = PROMPT_MAPPING[version]()
+    prompt_creator = PROMPT_MAPPING[model]()
     messages = prompt_creator.get_messages(text)
     raw_response = ask_llm(messages, model)
 
@@ -99,6 +105,6 @@ def llm_graph(text: str, model: str, version: int = 0) -> str:
         contents = json.loads(raw_response)
     except json.JSONDecodeError:
         logging.error(f"Failed to decode response: {raw_response}")
-        contents = {}
+        contents = raw_response
 
     return {"locations": contents}
