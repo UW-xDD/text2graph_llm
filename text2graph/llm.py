@@ -5,6 +5,8 @@ from enum import Enum
 
 import requests
 from dotenv import load_dotenv
+from openai import OpenAI
+
 
 from .prompt import V0Prompt
 
@@ -18,25 +20,56 @@ class OpenSourceModel(Enum):
     OPENHERMES = "openhermes"
 
 
+class OpenAIModel(Enum):
+    GPT3T = "gpt-3.5-turbo"
+    GPT4 = "gpt-4"
+    GPT4T = "gpt-4-turbo-preview"
+
+
 PROMPT_MAPPING = {0: V0Prompt}
 
 
 def ask_llm(
     messages: list[dict],
-    model: OpenSourceModel | str = "mixtral",
+    model: OpenSourceModel | OpenAIModel | str = "gpt-3.5-turbo",
     temperature: float = 0.0,
 ) -> dict:
     """Ask model with a data package.
 
     Example input: [{"role": "user", "content": "Hello world example in python."}]
     """
+
     # Validate supported models
     if isinstance(model, str):
-        try:
-            model = OpenSourceModel(model.lower())
-        except ValueError:
+        if model in [model.value for model in OpenSourceModel]:
+            model = OpenSourceModel(model)
+        elif model in [model.value for model in OpenAIModel]:
+            model = OpenAIModel(model)
+        else:
             raise ValueError(f"Model '{model}' is not supported.")
 
+    if isinstance(model, OpenSourceModel):
+        return query_ollama(model, messages, temperature)
+
+    if isinstance(model, OpenAIModel):
+        return query_openai(model, messages, temperature)
+
+
+def query_openai(
+    model: OpenAIModel, messages: list[dict], temperature: float = 0.0
+) -> str:
+    """Query OpenAI API for language model completion."""
+    client = OpenAI()
+    completion = client.chat.completions.create(
+        model=model.value, messages=messages, temperature=temperature, stream=False
+    )
+    return completion.choices[0].message.content
+
+
+def query_ollama(
+    model: OpenSourceModel, messages: list[dict], temperature: float = 0.0
+) -> str:
+    """Query self-hosted OLLAMA for language model completion."""
     url = os.getenv("OLLAMA_URL")
     user = os.getenv("OLLAMA_USER")
     password = os.getenv("OLLAMA_PASSWORD")

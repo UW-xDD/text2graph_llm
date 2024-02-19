@@ -1,2 +1,3 @@
 fastapi==0.109.2
 uvicorn==0.27.1
+openai==1.12.0
