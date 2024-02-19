@@ -31,7 +31,7 @@ PROMPT_MAPPING = {
     "openhermes": V0Prompt,
     "gpt-3.5-turbo": IainPrompt,
     "gpt-4": IainPrompt,
-    "gpt-4-turbo-preview": IainPrompt
+    "gpt-4-turbo-preview": IainPrompt,
 }
 
 
@@ -67,7 +67,11 @@ def query_openai(
     """Query OpenAI API for language model completion."""
     client = OpenAI()
     completion = client.chat.completions.create(
-        model=model.value, messages=messages, temperature=temperature, stream=False
+        model=model.value,
+        response_format={"type": "json_object"},
+        messages=messages,
+        temperature=temperature,
+        stream=False,
     )
     return completion.choices[0].message.content
 
@@ -84,6 +88,7 @@ def query_ollama(
         "messages": messages,
         "temperature": temperature,
         "stream": False,
+        "format": "json",
     }
     # Non-streaming mode
     response = requests.post(

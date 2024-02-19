@@ -1,3 +1,4 @@
+gradio_cached_examples/
 notebooks/*.html
 tmp/
 tmp.py

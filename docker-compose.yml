@@ -22,3 +22,10 @@ services:
     ports:
       - $API_PORT:4502
     env_file: .env
+
+  demo:
+    build:
+      dockerfile: ./demo/Dockerfile
+    ports:
+      - $DEMO_PORT:7860
+    env_file: .env
