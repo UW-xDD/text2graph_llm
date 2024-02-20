@@ -54,4 +54,4 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
         cache_examples=True,
     )
 
-demo.queue().launch(server_name="0.0.0.0")
+demo.launch(server_name="0.0.0.0")
