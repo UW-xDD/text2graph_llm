@@ -17,15 +17,13 @@ services:
               capabilities: [ gpu ]
               device_ids: [ $GPU_IDX ]
   api:
-    build:
-      dockerfile: ./api/Dockerfile
+    image: ghcr.io/jasonlo/text2graph_llm_api:latest
     ports:
       - $API_PORT:4502
     env_file: .env
 
   demo:
-    build:
-      dockerfile: ./demo/Dockerfile
+    image: ghcr.io/jasonlo/text2graph_llm_demo:latest
     ports:
       - $DEMO_PORT:7860
     env_file: .env
