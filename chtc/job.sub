@@ -1,5 +1,5 @@
 JobBatchName            = "LLM batch inference (testing)"
-arguments               = --run_name testing --batch_size 10 --start_index $(idx)
+# arguments               = --run_name testing --input_file 10 --start_index $(idx)
 
 # Environment
 universe                = docker
@@ -31,4 +31,4 @@ Requirements            = (Target.CUDADriverVersion >= 10.1)
 +WantGPULab             = true
 +GPUJobLength           = "short"
 
-queue idx in 0
+queue 1

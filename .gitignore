@@ -5,6 +5,7 @@ tmp.py
 eval.db
 nohup.out
 condor_log/*.txt
+chtc/condor_log/*.txt
 .ollama/
 tmp.ipynb
 

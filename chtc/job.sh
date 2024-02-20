@@ -19,6 +19,7 @@ ollama serve &
 sleep 10
 ollama pull mixtral
 echo "this is a warm up query" | ollama run mixtral
+curl http://localhost:11434/api/generate -d '{"model": "mixtral", "keep_alive": -1}'
 
 # Run the job
-python job.py $1 $2 $3 $4 $5 $6
+# python job.py $1 $2 $3 $4

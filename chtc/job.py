@@ -89,8 +89,8 @@ def run_batch(
         )
 
 
-def run(run_name: str, input_file: str) -> None:
-    """Run a batch of inference."""
+def run_olvi(run_name: str, input_file: str) -> None:
+    """Run a batch of inference (for local split on OLVI)."""
 
     create_table(run_name)
 
@@ -98,7 +98,7 @@ def run(run_name: str, input_file: str) -> None:
     df = pd.read_parquet(input_file)
     df["original_index"] = df.index
 
-    # filter out in DB records
+    # filter out in DB completed records
     completed = get_ids_from_db(run_name)
     df = df[~df["original_index"].isin(completed)].reset_index(drop=True)
 
@@ -114,6 +114,23 @@ def run(run_name: str, input_file: str) -> None:
                 for i, chunk in enumerate(batch_dfs)
             ],
         )
+
+
+def run(run_name:str ,input_file: str) -> None:
+    """Run the inference on single CHTC node."""
+
+    create_table(run_name)
+
+    # Input file
+    df = pd.read_parquet(input_file)
+    df["original_index"] = df.index
+
+    # filter out in DB completed records
+    completed = get_ids_from_db(run_name)
+    df = df[~df["original_index"].isin(completed)].reset_index(drop=True)
+
+    run_batch(run_name=run_name, port=11434, id_row="original_index")
+
 
 
 if __name__ == "__main__":
