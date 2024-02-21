@@ -17,5 +17,5 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY demo/ .
 
 # Serving
-EXPOSE 7860
-ENTRYPOINT ["python", "main.py"]
+EXPOSE 8501
+ENTRYPOINT ["streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0", "--logger.level=debug"]

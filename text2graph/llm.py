@@ -26,13 +26,7 @@ class OpenAIModel(Enum):
     GPT4T = "gpt-4-turbo-preview"
 
 
-PROMPT_MAPPING = {
-    "mixtral": V0Prompt,
-    "openhermes": V0Prompt,
-    "gpt-3.5-turbo": IainPrompt,
-    "gpt-4": IainPrompt,
-    "gpt-4-turbo-preview": IainPrompt,
-}
+AVAILABLE_PROMPTS = {"v0": V0Prompt, "v1": IainPrompt, "latest": IainPrompt}
 
 
 def ask_llm(
@@ -99,10 +93,16 @@ def query_ollama(
 
 
 # API layer function logic
-def llm_graph(text: str, model: str) -> str:
+def llm_graph(text: str, model: str, prompt_version: str = "latest") -> dict:
     """Core function for llm_graph endpoint."""
-    prompt_creator = PROMPT_MAPPING[model]()
+
+    logging.info(f"Querying model '{model}' with prompt version '{prompt_version}'")
+
+    # Create prompt and messages format
+    prompt_creator = AVAILABLE_PROMPTS[prompt_version]()
     messages = prompt_creator.get_messages(text)
+
+    # Query language model
     raw_response = ask_llm(messages, model)
 
     # Post-process response

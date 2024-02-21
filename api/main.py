@@ -5,6 +5,7 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from text2graph import llm
 
+
 logging.basicConfig(level=logging.INFO)
 
 API_KEY = os.getenv("API_KEY")
@@ -26,7 +27,7 @@ app = FastAPI(title="Text2Graph API")
 class GraphRequest(BaseModel):
     text: str
     model: str = "mixtral"
-    prompt_version: int = 0
+    prompt_version: str = "latest"
 
 
 class LocationResponse(BaseModel):
@@ -43,12 +44,15 @@ async def root():
 @app.post(
     "/llm_graph",
     dependencies=[Depends(has_valid_api_key)],
-    # response_model=LocationResponse,  # Avoid validating output for now, need a better json parser in text2graph.llm.llm_graph
+    # response_model=LocationResponse,  # Avoid validating output for now, need feedback from user
     tags=["LLM"],
 )
 async def llm_graph(request: GraphRequest):
+    logging.info(f"Received request: {request}")
     try:
-        return llm.llm_graph(request.text, request.model)
-    except Exception as e:
-        logging.error(f"Failed to process request: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e)
+        return llm.llm_graph(**request.model_dump())
+    except Exception as error:
+        logging.error(f"Failed to process request: {error}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error
+        )

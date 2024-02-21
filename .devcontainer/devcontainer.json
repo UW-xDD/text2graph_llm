@@ -4,10 +4,11 @@
 	"features": {
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
 	},
-	"postCreateCommand": "pip install -r .devcontainer/dev_requirements.txt && pip install -e . && curl https://ollama.ai/install.sh | sh",
+	"postCreateCommand": "pip install -r .devcontainer/dev_requirements.txt && pip install -e .",
 	"remoteUser": "root",
 	"runArgs": [
 		"--gpus",
-		"all"
+		"all",
+		"--network=host"
 	]
 }
