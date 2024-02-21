@@ -4,7 +4,7 @@ services:
 
   ollama:
     container_name: ollama
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.1.25
     ports:
       - 11434:11434
     volumes:
@@ -21,9 +21,8 @@ services:
     ports:
       - $API_PORT:4502
     env_file: .env
-
-  demo:
-    image: ghcr.io/jasonlo/text2graph_llm_demo:latest
-    ports:
-      - $DEMO_PORT:7860
-    env_file: .env
+  # demo:
+  #   image: ghcr.io/jasonlo/text2graph_llm_demo:latest
+  #   ports:
+  #     - $DEMO_PORT:7860
+  #   env_file: .env

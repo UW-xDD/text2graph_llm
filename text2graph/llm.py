@@ -112,4 +112,4 @@ def llm_graph(text: str, model: str) -> str:
         logging.error(f"Failed to decode response: {raw_response}")
         contents = raw_response
 
-    return {"locations": contents}
+    return contents
