@@ -16,12 +16,12 @@ else
     tag=$1
 fi
 
-demo_container=ghcr.io/$GH_USERNAME/"$GH_CONTAINER_NAME"_demo
-api_container=ghcr.io/$GH_USERNAME/"$GH_CONTAINER_NAME"_api
 
+demo_container=ghcr.io/$GH_USERNAME/"$GH_CONTAINER_NAME"_demo
 echo "Building $demo_container:$tag"
 docker build -t $demo_container:latest -t $demo_container:$tag  -f ./demo/Dockerfile .
 
+api_container=ghcr.io/$GH_USERNAME/"$GH_CONTAINER_NAME"_api
 echo "Building $api_container:$tag"
 docker build -t $api_container:latest -t $api_container:$tag  -f ./api/Dockerfile .
 
