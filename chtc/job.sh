@@ -15,10 +15,12 @@ ln -s /staging/clo36/.ollama ~/.ollama
 # Start ollama
 ollama serve &
 
+# Build custom ollama from Modelfile
+ollama create custom_mixtral -f ./Modelfile
+
 # Wait for ollama to be fully started
 sleep 10
-ollama pull mixtral
-echo "this is a warm up query" | ollama run mixtral
+echo "this is a warm up query" | ollama run custom_mixtral
 curl http://localhost:11434/api/generate -d '{"model": "mixtral", "keep_alive": -1}'
 
 # Run the job
