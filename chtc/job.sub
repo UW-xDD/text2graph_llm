@@ -1,9 +1,8 @@
 JobBatchName            = "LLM batch inference (testing)"
-# arguments               = --run_name testing --input_file 10 --start_index $(idx)
 
 # Environment
 universe                = docker
-docker_image            = ghcr.io/jasonlo/text2graph_llm_chtc:v240223r
+docker_image            = ghcr.io/jasonlo/text2graph_llm_chtc:v240223
 docker_network_type     = host
 
 # Artefact
