@@ -1,3 +1,4 @@
+macrostrat_stratname_data.json
 docker-compose-cosmos.yml
 gradio_cached_examples/
 notebooks/*.html
