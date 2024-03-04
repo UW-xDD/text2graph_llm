@@ -1,10 +1,14 @@
 import json
+import logging
+
 import requests
 from pathlib import Path
 from tqdm.auto import tqdm
+from pydantic import ValidationError
 
 import text2graph
-from text2graph.geolocation.core import Point
+from text2graph.schema import Location
+
 
 
 def all_strat_names_long() -> list[dict[str, str | int | float]] | None:
@@ -67,11 +71,15 @@ class StratNameGPSLookup:
         provide streatname to gps coordinates lookup
         """
         self.api_json_response = local_stratname_records()
-        self.lookup = {
-            x['strat_name_long']: Point(lat=x['clat'], lon=x['clng']) for x in self.api_json_response
-        }
+        self.lookup = {}
+        for x in self.api_json_response:
+            try:
+                self.lookup[x['strat_name_long']] = Location(name=x['strat_name_long'], lat=x['clat'], lon=x['clng'])
+            except ValidationError:
+                logging.warning(f"invalid location: {x['strat_name_long']}, lat={x['clat']}, lon={x['clng']}")
+                pass
 
-    def __call__(self, stratname: str) -> Point | None:
+    def __call__(self, stratname: str) -> Location | None:
         try:
             p = self.lookup[stratname]
         except KeyError:

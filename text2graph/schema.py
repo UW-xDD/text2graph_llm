@@ -1,5 +1,7 @@
-from pydantic import BaseModel
 
+from pydantic import BaseModel, ValidationError
+from pydantic.functional_validators import AfterValidator
+from typing_extensions import Annotated
 
 class Lithology(BaseModel):
     lith_id: int
@@ -37,7 +39,18 @@ class Stratigraphy(BaseModel):
     t_units: int
     ref_id: int
 
+def valid_longitude(v: float) -> float:
+    assert -180 <= v <= 180, f'{v} is not a valid longitude'
+    return v
+
+def valid_latitude(v: float) -> float:
+    assert -90 <= v <= 90, f'{v} is not a valid latitude'
+    return v
+
+Latitude = Annotated[float, AfterValidator(valid_latitude)]
+Longitude = Annotated[float, AfterValidator(valid_longitude)]
+
 class Location(BaseModel):
     name: str
-    lat: float | None
-    lon: float | None
+    lat: Latitude | None
+    lon: Longitude | None
