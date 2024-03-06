@@ -6,7 +6,7 @@ from enum import Enum
 import requests
 from dotenv import load_dotenv
 from openai import OpenAI
-
+from anthropic import Anthropic
 
 from .prompt import V0Prompt, IainPrompt
 
@@ -24,6 +24,11 @@ class OpenAIModel(Enum):
     GPT3T = "gpt-3.5-turbo"
     GPT4 = "gpt-4"
     GPT4T = "gpt-4-turbo-preview"
+
+class AnthropicModel(Enum):
+    CLAUDE3OPUS = "claude-3-opus-20240229"
+    CLAUDE3SONNET = "claude-3-sonnet-20240229"
+    CLAUDE3HAIKU = "claude-3-haiku-xxxx"
 
 
 AVAILABLE_PROMPTS = {"v0": V0Prompt, "v1": IainPrompt, "latest": IainPrompt}
@@ -69,6 +74,19 @@ def query_openai(
     )
     return completion.choices[0].message.content
 
+def query_anthropic(
+    model: AnthropicModel, messages: list[dict], temperature: float = 0.0
+) -> str:
+    """Query OpenAI API for language model completion."""
+    client = Anthropic()
+    completion = client.chat.completions.create(
+        model=model.value,
+        response_format={"type": "json_object"},
+        messages=messages,
+        temperature=temperature,
+        stream=False,
+    )
+    return completion.choices[0].message.content
 
 def query_ollama(
     model: OpenSourceModel, messages: list[dict], temperature: float = 0.0
