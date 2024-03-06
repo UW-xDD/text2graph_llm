@@ -25,6 +25,7 @@ class OpenAIModel(Enum):
     GPT4 = "gpt-4"
     GPT4T = "gpt-4-turbo-preview"
 
+
 class AnthropicModel(Enum):
     CLAUDE3OPUS = "claude-3-opus-20240229"
     CLAUDE3SONNET = "claude-3-sonnet-20240229"
@@ -36,9 +37,9 @@ AVAILABLE_PROMPTS = {"v0": V0Prompt, "v1": IainPrompt, "latest": IainPrompt}
 
 def ask_llm(
     messages: list[dict],
-    model: OpenSourceModel | OpenAIModel | str = "gpt-3.5-turbo",
+    model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
     temperature: float = 0.0,
-) -> dict:
+) -> str:
     """Ask model with a data package.
 
     Example input: [{"role": "user", "content": "Hello world example in python."}]
@@ -50,6 +51,8 @@ def ask_llm(
             model = OpenSourceModel(model)
         elif model in [model.value for model in OpenAIModel]:
             model = OpenAIModel(model)
+        elif model in [model.value for model in AnthropicModel]:
+            model = AnthropicModel(model)
         else:
             raise ValueError(f"Model '{model}' is not supported.")
 
@@ -58,6 +61,9 @@ def ask_llm(
 
     if isinstance(model, OpenAIModel):
         return query_openai(model, messages, temperature)
+
+    if isinstance(model, AnthropicModel):
+        return query_anthropic(model, messages, temperature)
 
 
 def query_openai(
@@ -74,19 +80,6 @@ def query_openai(
     )
     return completion.choices[0].message.content
 
-def query_anthropic(
-    model: AnthropicModel, messages: list[dict], temperature: float = 0.0
-) -> str:
-    """Query OpenAI API for language model completion."""
-    client = Anthropic()
-    completion = client.chat.completions.create(
-        model=model.value,
-        response_format={"type": "json_object"},
-        messages=messages,
-        temperature=temperature,
-        stream=False,
-    )
-    return completion.choices[0].message.content
 
 def query_ollama(
     model: OpenSourceModel, messages: list[dict], temperature: float = 0.0
@@ -108,6 +101,30 @@ def query_ollama(
     )
     response.raise_for_status()
     return response.json()["message"]["content"]
+
+
+def query_anthropic(
+    model: AnthropicModel, messages: list[dict], temperature: float = 0.0
+) -> str:
+    """Query Anthropic for language model completion."""
+
+    client = Anthropic()
+
+    for message in messages:
+        if message["role"] == "system":
+            system_message = message["content"]
+            messages.remove(message)
+
+    response = client.messages.create(
+        model=model.value,
+        max_tokens=4096,
+        messages=messages,
+        system=system_message,
+        temperature=temperature,
+        stream=False,
+    )
+
+    return response.content[0].text
 
 
 # API layer function logic

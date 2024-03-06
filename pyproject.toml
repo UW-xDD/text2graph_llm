@@ -25,6 +25,7 @@ dependencies = [
   "nltk == 3.8.1",
   "spacy == 3.7.2",
   "openai == 1.12.0",
+  "anthropic == 0.18.1"
 ]
 
 [project.urls]
