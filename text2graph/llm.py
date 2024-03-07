@@ -110,20 +110,25 @@ def query_anthropic(
 
     client = Anthropic()
 
+    # Extract system message
     for message in messages:
         if message["role"] == "system":
             system_message = message["content"]
             messages.remove(message)
+        else:
+            system_message = None
 
-    response = client.messages.create(
-        model=model.value,
-        max_tokens=4096,
-        messages=messages,
-        system=system_message,
-        temperature=temperature,
-        stream=False,
-    )
+    kwargs = {
+        "model": model.value,
+        "max_tokens": 4096,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": False,
+    }
+    if system_message:
+        kwargs["system"] = system_message
 
+    response = client.messages.create(**kwargs)
     return response.content[0].text
 
 
