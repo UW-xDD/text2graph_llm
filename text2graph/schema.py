@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-
+from enum import Enum
 
 class Lithology(BaseModel):
     lith_id: int
@@ -41,3 +41,13 @@ class Location(BaseModel):
     name: str
     lat: float | None
     lon: float | None
+
+
+class RelationshipTriples(BaseModel):
+    subject: str | Stratigraphy
+    predicate: str  # relationship, str for now...
+    object: str | Location
+
+class GraphOutput(BaseModel):
+    """LLM output should follow this format."""
+    triplets: list[RelationshipTriples]
