@@ -6,7 +6,7 @@ from enum import Enum
 import requests
 from dotenv import load_dotenv
 from openai import OpenAI
-
+from anthropic import Anthropic
 
 from .prompt import V0Prompt, IainPrompt
 
@@ -26,14 +26,20 @@ class OpenAIModel(Enum):
     GPT4T = "gpt-4-turbo-preview"
 
 
+class AnthropicModel(Enum):
+    CLAUDE3OPUS = "claude-3-opus-20240229"
+    CLAUDE3SONNET = "claude-3-sonnet-20240229"
+    CLAUDE3HAIKU = "claude-3-haiku-xxxx"
+
+
 AVAILABLE_PROMPTS = {"v0": V0Prompt, "v1": IainPrompt, "latest": IainPrompt}
 
 
 def ask_llm(
     messages: list[dict],
-    model: OpenSourceModel | OpenAIModel | str = "gpt-3.5-turbo",
+    model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
     temperature: float = 0.0,
-) -> dict:
+) -> str:
     """Ask model with a data package.
 
     Example input: [{"role": "user", "content": "Hello world example in python."}]
@@ -45,6 +51,8 @@ def ask_llm(
             model = OpenSourceModel(model)
         elif model in [model.value for model in OpenAIModel]:
             model = OpenAIModel(model)
+        elif model in [model.value for model in AnthropicModel]:
+            model = AnthropicModel(model)
         else:
             raise ValueError(f"Model '{model}' is not supported.")
 
@@ -53,6 +61,9 @@ def ask_llm(
 
     if isinstance(model, OpenAIModel):
         return query_openai(model, messages, temperature)
+
+    if isinstance(model, AnthropicModel):
+        return query_anthropic(model, messages, temperature)
 
 
 def query_openai(
@@ -90,6 +101,35 @@ def query_ollama(
     )
     response.raise_for_status()
     return response.json()["message"]["content"]
+
+
+def query_anthropic(
+    model: AnthropicModel, messages: list[dict], temperature: float = 0.0
+) -> str:
+    """Query Anthropic for language model completion."""
+
+    client = Anthropic()
+
+    # Extract system message
+    for message in messages:
+        if message["role"] == "system":
+            system_message = message["content"]
+            messages.remove(message)
+        else:
+            system_message = None
+
+    kwargs = {
+        "model": model.value,
+        "max_tokens": 4096,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": False,
+    }
+    if system_message:
+        kwargs["system"] = system_message
+
+    response = client.messages.create(**kwargs)
+    return response.content[0].text
 
 
 # API layer function logic

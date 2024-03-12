@@ -4,7 +4,7 @@ services:
 
   ollama:
     container_name: ollama
-    image: ollama/ollama:0.1.25
+    image: ollama/ollama:latest
     ports:
       - 11434:11434
     volumes:
