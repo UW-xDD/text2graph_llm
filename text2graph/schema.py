@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
+
 class Lithology(BaseModel):
     lith_id: int
     name: str
@@ -12,47 +13,48 @@ class Lithology(BaseModel):
     fill: int
     t_units: int
 
+
 class Stratigraphy(BaseModel):
     strat_name: str
-    strat_name_long: str
-    rank: str
-    strat_name_id: int
-    concept_id: int
-    bed: str
-    bed_id: int
-    mbr: str
-    mbr_id: int
-    fm: str
-    fm_id: int
-    subgp: str
-    subgp_id: int
-    gp: str
-    gp_id: int
-    sgp: str
-    sgp_id: int
-    b_age: float
-    t_age: float
-    b_period: str
-    t_period: str
-    c_interval: str
-    t_units: int
-    ref_id: int
+    strat_name_long: str | None
+    rank: str | None
+    strat_name_id: int | None
+    concept_id: int | None
+    bed: str | None
+    bed_id: int | None
+    mbr: str | None
+    mbr_id: int | None
+    fm: str | None
+    fm_id: int | None
+    subgp: str | None
+    subgp_id: int | None
+    gp: str | None
+    gp_id: int | None
+    sgp: str | None
+    sgp_id: int | None
+    b_age: float | None
+    t_age: float | None
+    b_period: str | None
+    t_period: str | None
+    c_interval: str | None
+    t_units: int | None
+    ref_id: int | None
+
 
 def valid_longitude(v: float) -> float:
-    assert -180 <= v <= 180, f'{v} is not a valid longitude'
+    assert -180 <= v <= 180, f"{v} is not a valid longitude"
     return v
+
 
 def valid_latitude(v: float) -> float:
-    assert -90 <= v <= 90, f'{v} is not a valid latitude'
+    assert -90 <= v <= 90, f"{v} is not a valid latitude"
     return v
 
-Latitude = Annotated[float, AfterValidator(valid_latitude)]
-Longitude = Annotated[float, AfterValidator(valid_longitude)]
 
 class Location(BaseModel):
     name: str
-    lat: Latitude | None
-    lon: Longitude | None
+    lat: Annotated[float, AfterValidator(valid_latitude)] | None
+    lon: Annotated[float, AfterValidator(valid_longitude)] | None
 
 
 class RelationshipTriples(BaseModel):
@@ -60,7 +62,8 @@ class RelationshipTriples(BaseModel):
     predicate: str  # relationship, str for now...
     object: str | Location
 
+
 class GraphOutput(BaseModel):
     """LLM output should follow this format."""
-    triplets: list[RelationshipTriples]
 
+    triplets: list[RelationshipTriples]

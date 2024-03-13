@@ -4,8 +4,10 @@
         "jasonlo",
         "Lemmatization",
         "Lemmatizer",
+        "macrostrat",
         "Modelfile",
         "openhermes",
-        "Spacy"
+        "Spacy",
+        "strat"
     ]
 }
