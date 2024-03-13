@@ -2,20 +2,20 @@ version: '3.8'
 
 services:
 
-  ollama:
-    container_name: ollama
-    image: ollama/ollama:latest
-    ports:
-      - 11434:11434
-    volumes:
-      - $OLLAMA_MODEL_DIR:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities: [ gpu ]
-              device_ids: [ $GPU_IDX ]
+  # ollama:
+  #   container_name: ollama
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - 11434:11434
+  #   volumes:
+  #     - $OLLAMA_MODEL_DIR:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             capabilities: [ gpu ]
+  #             device_ids: [ $GPU_IDX ]
 
   api:
     # image: ghcr.io/jasonlo/text2graph_llm_api:latest
