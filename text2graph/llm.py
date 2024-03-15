@@ -3,8 +3,9 @@ import logging
 import os
 from enum import Enum
 from typing import Any
-
+from functools import lru_cache
 import requests
+from tenacity import retry, stop_after_attempt, wait_exponential
 from dotenv import load_dotenv
 from openai import OpenAI
 from anthropic import Anthropic
@@ -37,6 +38,7 @@ class AnthropicModel(Enum):
 AVAILABLE_PROMPTS = {"v0": V0Prompt, "v1": IainPrompt, "latest": IainPrompt}
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential())
 def ask_llm(
     messages: list[dict],
     model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
@@ -52,6 +54,7 @@ def ask_llm(
         if model in [model.value for model in OpenSourceModel]:
             model = OpenSourceModel(model)
         elif model in [model.value for model in OpenAIModel]:
+            logging.info(f"Querying model '{model}'")
             model = OpenAIModel(model)
         elif model in [model.value for model in AnthropicModel]:
             model = AnthropicModel(model)
@@ -87,11 +90,10 @@ def query_ollama(
     model: OpenSourceModel, messages: list[dict], temperature: float = 0.0
 ) -> str:
     """Query self-hosted OLLAMA for language model completion."""
-    url = os.getenv("OLLAMA_URL")
-    if not url:
-        raise ValueError("OLLAMA_URL is not set.")
-    user = os.getenv("OLLAMA_USER")
-    password = os.getenv("OLLAMA_PASSWORD")
+
+    url = f"http://{os.getenv('OLLAMA_HOST')}:{os.getenv('OLLAMA_PORT')}/api/generate"
+    headers = {"Api-Key": os.getenv("OLLAMA_API_KEY")}
+
     data = {
         "model": model.value,
         "messages": messages,
@@ -100,9 +102,7 @@ def query_ollama(
         "format": "json",
     }
     # Non-streaming mode
-    response = requests.post(
-        url, auth=requests.auth.HTTPBasicAuth(user, password), json=data
-    )
+    response = requests.post(url, headers=headers, json=data)
     response.raise_for_status()
     return response.json()["message"]["content"]
 
@@ -136,8 +136,12 @@ def query_anthropic(
     return response.content[0].text
 
 
-# API layer function logic
-def llm_graph(text: str, model: str, prompt_version: str = "latest") -> Any:
+@lru_cache(maxsize=30)
+def llm_graph(
+    text: str,
+    model: OpenSourceModel | OpenAIModel | AnthropicModel | str,
+    prompt_version: str = "latest",
+) -> Any:
     """Core function for llm_graph endpoint."""
 
     logging.info(f"Querying model '{model}' with prompt version '{prompt_version}'")
@@ -145,6 +149,8 @@ def llm_graph(text: str, model: str, prompt_version: str = "latest") -> Any:
     # Create prompt and messages format
     prompt_creator = AVAILABLE_PROMPTS[prompt_version]()
     messages = prompt_creator.get_messages(text)
+
+    logging.info(f"Prompt: {messages}")
 
     # Query language model
     raw_response = ask_llm(messages, model)
