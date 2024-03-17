@@ -1,5 +1,8 @@
 import logging
-from pydantic import BaseModel
+import os
+
+import requests
+from pydantic import BaseModel, ValidationError
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 from .macrostrat import get_strat_records, get_lith_records
@@ -86,8 +89,24 @@ class Location(BaseModel):
     lat: Annotated[float, AfterValidator(valid_latitude)] | None = None
     lon: Annotated[float, AfterValidator(valid_longitude)] | None = None
 
+    def model_post_init(self, __context) -> None:
+        self.hydrate()
+
     def hydrate(self) -> None:
-        raise NotImplementedError  # TODO: Use any geocoding API to hydrate location, also add `model_post_init`
+        "Hydrate Location from SERPAPI"
+        serpapi_key = os.environ["SERPAPI_KEY"]
+        google_maps_api_base_url = "https://serpapi.com/search.json?engine=google_maps"
+        request_url = f"{google_maps_api_base_url}&q={self.name}&api_key={serpapi_key}"
+        r = requests.get(request_url)
+        if r.ok:
+            search_result = r.json()
+            try:
+                self.lat = search_result["place_results"]['gps_coordinates']['latitude'],
+                self.lon = search_result["place_results"]['gps_coordinates']['longitude']
+            except (KeyError, ValidationError):
+                logging.warning(
+                    f"Location hydrate serpapi request failed for {self.name}: {r.status_code=} {r.content=}"
+                )
 
 
 class RelationshipTriples(BaseModel):
