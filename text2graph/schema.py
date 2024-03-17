@@ -100,13 +100,32 @@ class Location(BaseModel):
         r = requests.get(request_url)
         if r.ok:
             search_result = r.json()
+            raw_lon = search_result["place_results"]['gps_coordinates']['longitude']
+            raw_lat = search_result["place_results"]['gps_coordinates']['latitude']
             try:
-                self.lat = search_result["place_results"]['gps_coordinates']['latitude'],
-                self.lon = search_result["place_results"]['gps_coordinates']['longitude']
+                self.lon = strip_tuples_return_float(raw_lon)
+                self.lat = strip_tuples_return_float(raw_lat)
             except (KeyError, ValidationError):
                 logging.warning(
                     f"Location hydrate serpapi request failed for {self.name}: {r.status_code=} {r.content=}"
                 )
+
+
+def strip_tuples_return_float(value: str | float| tuple[float] | list[float]) -> float:
+    """
+    take first value of any tuple passed and conver to float. if conversion failure return None
+    :param value: value to 'un-tuple' and convert
+    :return: float or None
+    """
+    try:
+        untupled = value[0]
+    except (TypeError, IndexError):
+        untupled = value
+    try:
+        result = float(untupled)
+    except (ValueError, TypeError):
+        result = None
+    return result
 
 
 class RelationshipTriples(BaseModel):
@@ -127,6 +146,7 @@ class RelationshipTriples(BaseModel):
             self.subject = Stratigraphy(strat_name=self.subject)
         if isinstance(self.object, str):
             self.object = Location(name=self.object)
+
 
 
 class GraphOutput(BaseModel):
