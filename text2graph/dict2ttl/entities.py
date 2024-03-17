@@ -195,9 +195,9 @@ class GKMxDDEntity:
         """
         # location_name = self.name + f"-location-{self.__total_current_locations__()}"
         spatial_location_value = (
-                "gsoc:SpatialLocation "
-                + "[\n\t\tgsoc:hasValue "
-                + f"\"{name}\"\n\t]"
+                "gsoc:SpatialLocation ["
+                + f"\n\t\tgsoc:hasValue \"{name}\" ;"
+                + f"\n\t]"
         )
         self.add_property(type="gsoc:hasQuality", item=spatial_location_value)
         return self
