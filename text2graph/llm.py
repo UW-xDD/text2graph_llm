@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from enum import Enum
+from typing import Any
 
 import requests
 from dotenv import load_dotenv
@@ -9,6 +10,7 @@ from openai import OpenAI
 from anthropic import Anthropic
 
 from .prompt import V0Prompt, IainPrompt
+from .schema import RelationshipTriples
 
 load_dotenv()
 
@@ -86,6 +88,8 @@ def query_ollama(
 ) -> str:
     """Query self-hosted OLLAMA for language model completion."""
     url = os.getenv("OLLAMA_URL")
+    if not url:
+        raise ValueError("OLLAMA_URL is not set.")
     user = os.getenv("OLLAMA_USER")
     password = os.getenv("OLLAMA_PASSWORD")
     data = {
@@ -133,7 +137,7 @@ def query_anthropic(
 
 
 # API layer function logic
-def llm_graph(text: str, model: str, prompt_version: str = "latest") -> dict:
+def llm_graph(text: str, model: str, prompt_version: str = "latest") -> Any:
     """Core function for llm_graph endpoint."""
 
     logging.info(f"Querying model '{model}' with prompt version '{prompt_version}'")
@@ -153,3 +157,9 @@ def llm_graph(text: str, model: str, prompt_version: str = "latest") -> dict:
         contents = raw_response
 
     return contents
+
+
+def inject_attributes(triplet: tuple) -> RelationshipTriples:
+    """Inject attributes into RelationshipTriples model. Must be (subject, object, predicate) tuple."""
+    subject, object, predicate = triplet
+    return RelationshipTriples(subject=subject, object=object, predicate=predicate)

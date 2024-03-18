@@ -27,7 +27,7 @@ class GraphRequest(BaseModel):
     prompt_version: str = "latest"
 
 
-class LocationResponse(BaseModel):
+class GraphResponse(BaseModel):
     locations: dict[str, list[str]]
 
 
