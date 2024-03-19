@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from anthropic import Anthropic
 
-from .prompt import V0Prompt, IainPrompt
+from .prompt import V0Prompt, V1Prompt, V2Prompt
 from .schema import RelationshipTriples
 
 load_dotenv()
@@ -34,7 +34,7 @@ class AnthropicModel(Enum):
     CLAUDE3HAIKU = "claude-3-haiku-xxxx"
 
 
-AVAILABLE_PROMPTS = {"v0": V0Prompt, "v1": IainPrompt, "latest": IainPrompt}
+AVAILABLE_PROMPTS = {"v0": V0Prompt, "v1": V1Prompt, "v2": V2Prompt}
 
 
 def ask_llm(
@@ -122,10 +122,21 @@ def query_anthropic(
         else:
             system_message = None
 
+    # Format user message
+    user_messages = []
+    for message in messages:
+        if message["role"] == "user":
+            user_messages.append(
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": message["content"]}],
+                }
+            )
+
     kwargs = {
         "model": model.value,
         "max_tokens": 4096,
-        "messages": messages,
+        "messages": user_messages,
         "temperature": temperature,
         "stream": False,
     }
@@ -137,7 +148,9 @@ def query_anthropic(
 
 
 # API layer function logic
-def llm_graph(text: str, model: str, prompt_version: str = "latest") -> Any:
+def llm_graph(
+    text: str, model: str, prompt_version: str = "latest", to_triplets: bool = True
+) -> Any:
     """Core function for llm_graph endpoint."""
 
     logging.info(f"Querying model '{model}' with prompt version '{prompt_version}'")
@@ -147,19 +160,24 @@ def llm_graph(text: str, model: str, prompt_version: str = "latest") -> Any:
     messages = prompt_creator.get_messages(text)
 
     # Query language model
-    raw_response = ask_llm(messages, model)
+    contents = ask_llm(messages, model)
 
-    # Post-process response
-    try:
-        contents = json.loads(raw_response)
-    except json.JSONDecodeError:
-        logging.error(f"Failed to decode response: {raw_response}")
-        contents = raw_response
+    # Post-process response (must be JSON)
+    contents = json.loads(contents)
+
+    if to_triplets:
+        try:
+            contents = [to_triplet(triplet) for triplet in contents["triplets"]]
+        except ValueError:
+            logging.error(f"Failed to inject attributes: {contents}")
 
     return contents
 
 
-def inject_attributes(triplet: tuple) -> RelationshipTriples:
-    """Inject attributes into RelationshipTriples model. Must be (subject, object, predicate) tuple."""
-    subject, object, predicate = triplet
-    return RelationshipTriples(subject=subject, object=object, predicate=predicate)
+def to_triplet(triplet: dict) -> RelationshipTriples:
+    """Inject attributes into RelationshipTriples model. Must be {"subject": "x", "object": "y", "predicate": "z"} tuple."""
+    return RelationshipTriples(
+        subject=triplet["subject"],
+        object=triplet["object"],
+        predicate=triplet["predicate"],
+    )
