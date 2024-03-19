@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from anthropic import Anthropic
 
-from .prompt import V0Prompt, IainPrompt
+from .prompt import V0Prompt, V1Prompt, V2Prompt
 from .schema import RelationshipTriples
 
 load_dotenv()
@@ -34,7 +34,7 @@ class AnthropicModel(Enum):
     CLAUDE3HAIKU = "claude-3-haiku-xxxx"
 
 
-AVAILABLE_PROMPTS = {"v0": V0Prompt, "v1": IainPrompt, "latest": IainPrompt}
+AVAILABLE_PROMPTS = {"v0": V0Prompt, "v1": V1Prompt, "v2": V2Prompt}
 
 
 def ask_llm(
@@ -137,7 +137,9 @@ def query_anthropic(
 
 
 # API layer function logic
-def llm_graph(text: str, model: str, prompt_version: str = "latest") -> Any:
+def llm_graph(
+    text: str, model: str, prompt_version: str = "latest", to_triplets: bool = True
+) -> Any:
     """Core function for llm_graph endpoint."""
 
     logging.info(f"Querying model '{model}' with prompt version '{prompt_version}'")
@@ -156,10 +158,17 @@ def llm_graph(text: str, model: str, prompt_version: str = "latest") -> Any:
         logging.error(f"Failed to decode response: {raw_response}")
         contents = raw_response
 
+    if to_triplets:
+        try:
+            contents = [inject_attributes(triplet) for triplet in contents]
+        except TypeError:
+            logging.error(f"Failed to inject attributes: {contents}")
+            pass
+
     return contents
 
 
 def inject_attributes(triplet: tuple) -> RelationshipTriples:
     """Inject attributes into RelationshipTriples model. Must be (subject, object, predicate) tuple."""
-    subject, object, predicate = triplet
+    subject, predicate, object = triplet
     return RelationshipTriples(subject=subject, object=object, predicate=predicate)

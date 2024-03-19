@@ -48,7 +48,7 @@ provided context:
 """
 
 
-class IainPrompt:
+class V1Prompt:
     """Iain's prompt for geo-entity extraction."""
 
     @property
@@ -59,7 +59,9 @@ class IainPrompt:
         return IainBasePrompt + text
 
     def get_messages(self, text: str) -> list[dict]:
-        return create_messages(user_prompt=self.get_user_prompt(text), system_prompt=self.system_prompt)
+        return create_messages(
+            user_prompt=self.get_user_prompt(text), system_prompt=self.system_prompt
+        )
 
 
 class BillPrompt:
@@ -90,6 +92,20 @@ class BillPrompt:
             "]"
             "Only include relationships that relate to stratigraphic units or lithology. Ignore all other relationships."
         )
+
+    def get_messages(self, text: str) -> list[dict]:
+        return create_messages(user_prompt=text, system_prompt=self.system_prompt)
+
+
+class V2Prompt:
+    """V2 location and geo-entity extraction prompt.
+
+    Subject, predicate, object triplet extraction with known entity data.
+    """
+
+    @property
+    def system_prompt(self) -> str:
+        return "You are a geology expert and you are very good in understanding mining reports and technical documents. You will extract relationship triplets: (subject, predicate, object) from the given context. The subject is a location and the object is a geological entity. The predicate is the relationship between the location and the geological entity. Return in json format like this: [('subject', 'predicate', 'object'), ...]. Return an empty list if there is no location. Do not provide explanations or context."
 
     def get_messages(self, text: str) -> list[dict]:
         return create_messages(user_prompt=text, system_prompt=self.system_prompt)
