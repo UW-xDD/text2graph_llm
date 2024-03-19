@@ -101,12 +101,9 @@ class Location(BaseModel):
         if r.ok:
             search_result = r.json()
             try:
-                self.lat = (
-                    search_result["place_results"]["gps_coordinates"]["latitude"],
-                )
-                self.lon = search_result["place_results"]["gps_coordinates"][
-                    "longitude"
-                ]
+                gps = search_result["place_results"]["gps_coordinates"]
+                self.lat = gps["latitude"]
+                self.lon = gps["longitude"]
             except (KeyError, ValidationError):
                 logging.warning(
                     f"Location hydrate serpapi request failed for {self.name}: {r.status_code=} {r.content=}"

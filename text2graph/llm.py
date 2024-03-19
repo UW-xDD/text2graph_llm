@@ -122,10 +122,21 @@ def query_anthropic(
         else:
             system_message = None
 
+    # Format user message
+    user_messages = []
+    for message in messages:
+        if message["role"] == "user":
+            user_messages.append(
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": message["content"]}],
+                }
+            )
+
     kwargs = {
         "model": model.value,
         "max_tokens": 4096,
-        "messages": messages,
+        "messages": user_messages,
         "temperature": temperature,
         "stream": False,
     }
@@ -149,26 +160,24 @@ def llm_graph(
     messages = prompt_creator.get_messages(text)
 
     # Query language model
-    raw_response = ask_llm(messages, model)
+    contents = ask_llm(messages, model)
 
-    # Post-process response
-    try:
-        contents = json.loads(raw_response)
-    except json.JSONDecodeError:
-        logging.error(f"Failed to decode response: {raw_response}")
-        contents = raw_response
+    # Post-process response (must be JSON)
+    contents = json.loads(contents)
 
     if to_triplets:
         try:
-            contents = [inject_attributes(triplet) for triplet in contents]
-        except TypeError:
+            contents = [to_triplet(triplet) for triplet in contents["triplets"]]
+        except ValueError:
             logging.error(f"Failed to inject attributes: {contents}")
-            pass
 
     return contents
 
 
-def inject_attributes(triplet: tuple) -> RelationshipTriples:
-    """Inject attributes into RelationshipTriples model. Must be (subject, object, predicate) tuple."""
-    subject, predicate, object = triplet
-    return RelationshipTriples(subject=subject, object=object, predicate=predicate)
+def to_triplet(triplet: dict) -> RelationshipTriples:
+    """Inject attributes into RelationshipTriples model. Must be {"subject": "x", "object": "y", "predicate": "z"} tuple."""
+    return RelationshipTriples(
+        subject=triplet["subject"],
+        object=triplet["object"],
+        predicate=triplet["predicate"],
+    )

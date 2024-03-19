@@ -23,9 +23,10 @@ with st.sidebar:
         [
             "gpt-4-turbo-preview",
             "gpt-3.5-turbo",
+            "claude-3-opus-20240229",
+            "claude-3-sonnet-20240229",
             "mixtral",
             "openhermes",
-            "claude-3-opus-20240229",
         ],
     )
     prompt_version = st.radio("Select prompt version", ["v2"])

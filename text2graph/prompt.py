@@ -103,9 +103,20 @@ class V2Prompt:
     Subject, predicate, object triplet extraction with known entity data.
     """
 
+    @staticmethod
+    def known_geo_entity() -> str:
+        return ", ".join(
+            ["Shakopee", "Roubidoux", "Jefferson City", "Everton"]
+        )  #  TODO: Need workarounds, should probably align outside the LLM since there are too many known entities (40000+)
+
     @property
     def system_prompt(self) -> str:
-        return "You are a geology expert and you are very good in understanding mining reports and technical documents. You will extract relationship triplets: (subject, predicate, object) from the given context. The subject is a location and the object is a geological entity. The predicate is the relationship between the location and the geological entity. Return in json format like this: [('subject', 'predicate', 'object'), ...]. Return an empty list if there is no location. Do not provide explanations or context."
+        return f'You are a geology expert and you are very good in understanding mining reports and technical documents. You will extract relationship triplets from the given context. The subject is a location and the object is a geological entity. Prioritize these known geological entities: {self.known_geo_entity}, but also include anything that looks like geological entities. The predicate is the relationship between the location and the geological entity. Return in json format like this: {{"triplets: [{{"subject": "subject_1", "predicate": "predicate_1", "object": "object_1"}}...]}}. Return an empty dictionary if there is no location. Do not provide explanations or context.'
+
+    def user_prompt(self, text: str) -> str:
+        return f'{text} Extract relationship triplets, Use JSON format with the key "triplets" and a list of dictionary. For example: {{"triplets": [{{"subject": "subject_1", "predicate": "predicate_1", "object": "object_1"}}...]}}'
 
     def get_messages(self, text: str) -> list[dict]:
-        return create_messages(user_prompt=text, system_prompt=self.system_prompt)
+        return create_messages(
+            user_prompt=self.user_prompt(text), system_prompt=self.system_prompt
+        )
