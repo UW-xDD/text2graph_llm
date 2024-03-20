@@ -15,6 +15,14 @@ class Rank(IntEnum):
     SUPERGROUP = 4
 
 
+STRAT_RANK_EXPANSION = {
+    'Bed': "Bed",
+    'Mbr': "Member",
+    'Fm': "Formation",
+    'Gp': "Group",
+    'SGp': "Supergroup"
+}
+
 STRAT_RANK_LOOKUP = {
     'Bed': Rank.BED,
     'Mbr': Rank.MEMBER,
@@ -28,7 +36,7 @@ GSOG = Namespace("https://w3id.org/gso/geology/")
 GSGU = Namespace("https://w3id.org/gso/geologicunit/")
 GSPR = Namespace("https://w3id.org/gso/geologicprocess/")
 GST = Namespace("https://w3id.org/gso/geologictime/")
-XDD = Namespace("https://w3id.org/xdd-lexicography/")
+MSL = Namespace("https://macrostrat.org/lexicon/")
 
 RANK_LOOKUP = {
     'Bed': GSGU.Bed,
@@ -80,20 +88,20 @@ def stratigraphic_rank_relations(g: Graph, subject_data: dict, subject_node: URI
     Add stratigraphic rank relationships in subject_data to graph
     """
     subject_rank_relation = RankRelation.from_subject_data(subject_data)
-    for k in STRAT_RANK_LOOKUP.keys():
-        rank_relation_name = subject_data[k.lower()]
-        rank_relation_dct = dict(strat_name_long=rank_relation_name + k, rank=k)
+    for rank in STRAT_RANK_LOOKUP.keys():
+        rank_relation_name = subject_data[rank.lower()]
+        rank_relation_dct = dict(strat_name_long=rank_relation_name + STRAT_RANK_EXPANSION[rank], rank=rank)
         if rank_relation_name:
             relator_rank_relation = RankRelation.from_subject_data(rank_relation_dct)
             if relator_rank_relation.rank < subject_rank_relation.rank:
                 # print(f"{relator_rank_relation.name} is part of {subject_rank_relation.name}")
-                rank_relation_node = URIRef(relator_rank_relation.entity_name, XDD)
+                rank_relation_node = URIRef(relator_rank_relation.entity_name, MSL)
                 g.add((rank_relation_node, RDF.type, relator_rank_relation.rdftype))
                 g.add((rank_relation_node, GSOC.isPartOf, subject_node))
 
             if relator_rank_relation.rank > subject_rank_relation.rank:
                 # print(f"{subject_rank_relation.name} is part of {relator_rank_relation.name} ")
-                rank_relation_node = URIRef(relator_rank_relation.entity_name, XDD)
+                rank_relation_node = URIRef(relator_rank_relation.entity_name, MSL)
                 g.add((rank_relation_node, RDF.type, relator_rank_relation.rdftype))
                 g.add((subject_node, GSOC.isPartOf, rank_relation_node))
     return g
@@ -176,7 +184,7 @@ def default_rdf_graph() -> Graph:
     g.bind("gsgu", GSGU)
     g.bind("gst", GST)
     g.bind("gspr", GSPR)
-    g.bind("xdd", XDD)
+    g.bind("msl", MSL)
     return g
 
 
@@ -195,7 +203,7 @@ def triplet_to_rdf(triplet: dict | RelationshipTriples) -> Graph:
 
     g = default_rdf_graph()
     subject_name = subject_data["strat_name_long"].replace(" ", "")
-    subject = URIRef(subject_name, XDD)
+    subject = URIRef(subject_name, MSL)
     g.add((subject, RDF.type, RANK_LOOKUP[subject_data["rank"]]))
     g.add((subject, RDFS.label, Literal(subject_data["strat_name_long"], lang="en")))
     g = spatial_location(g=g, subject_data=subject_data, object_data=object_data, subject=subject)
@@ -210,7 +218,7 @@ def graph_to_ttl_string(g: Graph, filename: Path | None = None) -> str:
     """
     serialize graph to RDF Turtle (ttl) string
     :param g: graph to serialize
-    :filename Path: Path or None, if Path write TTL to disk at given filename
+    :param filename: Path or None, if Path write TTL to disk at given filename
     :return str: serialized graph
     """
     output = g.serialize(format="turtle")
