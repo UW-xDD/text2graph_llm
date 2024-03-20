@@ -1,10 +1,9 @@
 from pathlib import Path
-
-import requests
 from enum import IntEnum
 from dataclasses import dataclass
 from rdflib import Graph, Literal, RDF, RDFS, Namespace, URIRef, BNode
 
+from text2graph.macrostrat import get_all_intervals
 from text2graph.schema import RelationshipTriples
 
 
@@ -40,16 +39,6 @@ RANK_LOOKUP = {
 }
 
 BASE_URL = "https://macrostrat.org/api"
-
-
-def get_all_intervals() -> list[dict]:
-    """Get all stratigraphic names from macrostrat API."""
-
-    url = f"{BASE_URL}/defs/intervals?all"
-    r = requests.get(url)
-    r.raise_for_status()
-    data = r.json()["success"]["data"]
-    return data
 
 
 def create_interval_lookup(intervals: list[dict]) -> dict:
