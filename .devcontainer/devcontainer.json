@@ -1,14 +1,12 @@
 {
 	"name": "text2graph_llm",
-	"image": "python:3.11.7-bookworm",
+	"image": "mcr.microsoft.com/devcontainers/python:1-3.11-bookworm",
 	"features": {
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
 	},
 	"postCreateCommand": "pip install -r .devcontainer/dev_requirements.txt && pip install -e .",
 	"remoteUser": "root",
 	"runArgs": [
-		"--gpus",
-		"all",
 		"--network=host"
 	]
 }

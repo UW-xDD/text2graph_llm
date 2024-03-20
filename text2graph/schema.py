@@ -103,8 +103,9 @@ class Location(BaseModel):
             raw_lon = search_result["place_results"]['gps_coordinates']['longitude']
             raw_lat = search_result["place_results"]['gps_coordinates']['latitude']
             try:
-                self.lon = strip_tuples_return_float(raw_lon)
-                self.lat = strip_tuples_return_float(raw_lat)
+                gps = search_result["place_results"]["gps_coordinates"]
+                self.lat = gps["latitude"]
+                self.lon = gps["longitude"]
             except (KeyError, ValidationError):
                 logging.warning(
                     f"Location hydrate serpapi request failed for {self.name}: {r.status_code=} {r.content=}"
@@ -137,15 +138,15 @@ class RelationshipTriples(BaseModel):
         triplet = RelationshipTriples(subject=subject, object=object, predicate=predicate)
     """
 
-    subject: str | Stratigraphy
+    subject: str | Location
     predicate: str  # relationship, str for now...
-    object: str | Location
+    object: str | Stratigraphy
 
     def model_post_init(self, __context) -> None:
         if isinstance(self.subject, str):
-            self.subject = Stratigraphy(strat_name=self.subject)
+            self.subject = Location(name=self.subject)
         if isinstance(self.object, str):
-            self.object = Location(name=self.object)
+            self.object = Stratigraphy(strat_name=self.object)
 
 
 
