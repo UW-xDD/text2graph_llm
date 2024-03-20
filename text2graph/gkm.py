@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import requests
 from enum import IntEnum
 from dataclasses import dataclass
@@ -215,10 +217,15 @@ def triplet_to_rdf(triplet: dict | RelationshipTriples) -> Graph:
     return g
 
 
-def graph_to_ttl_string(g: Graph) -> str:
+def graph_to_ttl_string(g: Graph, filename: Path | None = None) -> str:
     """
     serialize graph to RDF Turtle (ttl) string
     :param g: graph to serialize
+    :filename Path: Path or None, if Path write TTL to disk at given filename
     :return str: serialized graph
     """
-    return g.serialize(format="turtle")
+    output = g.serialize(format="turtle")
+    if filename:
+        with open(filename, 'w') as f:
+            f.write(output)
+    return output
