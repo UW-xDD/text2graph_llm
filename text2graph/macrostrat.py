@@ -16,16 +16,6 @@ def get_all_strat_names() -> list[str]:
     return sorted(list(set([x["strat_name"] for x in data])))
 
 
-def get_all_intervals() -> list[dict]:
-    """Get all intervals from macrostrat API."""
-
-    url = f"{BASE_URL}/defs/intervals?all"
-    r = requests.get(url)
-    r.raise_for_status()
-    data = r.json()["success"]["data"]
-    return data
-
-
 @cache
 def get_all_lithologies() -> list[str]:
     """Get all lithologies from macrostrat API."""
