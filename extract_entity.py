@@ -146,7 +146,13 @@ def process_case(paragraph: dict) -> None:
     logging.info(
         f"Extracted entities for paragraph {paragraph['hashed_text']}: {entities}"
     )
-    insert_case(**entities)
+    try:
+        insert_case(**entities)
+    except Exception as e:
+        logging.error(
+            f"Failed to insert entities for paragraph {paragraph['hashed_text']} into the database: {e}"
+        )
+        return
     logging.info(
         f"Inserted entities for paragraph {paragraph['hashed_text']} into the database."
     )
