@@ -1,13 +1,14 @@
-import os
 import json
+import logging
+import os
+import sqlite3
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
 import requests
 import tenacity
-import logging
 import weaviate
-import sqlite3
-
 from dotenv import load_dotenv
-from concurrent.futures import ThreadPoolExecutor
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,7 +25,11 @@ WEAVIATE_CLIENT = weaviate.Client(
 )
 
 
-def create_db(local_db: str = "entities.db"):
+def create_db(local_db: str = "entities.db") -> None:
+    """Create local DB if it doesn't exist."""
+    if Path(local_db).exists():
+        return
+
     with sqlite3.connect(local_db) as conn:
         cur = conn.cursor()
         cur.execute("""
@@ -46,6 +51,7 @@ def insert_case(
     stratigraphic_names: str,
     lithologies: str,
 ) -> None:
+    """Insert entity into local DB."""
     with sqlite3.connect("entities.db") as conn:
         cur = conn.cursor()
         cur.execute(
@@ -59,6 +65,7 @@ def insert_case(
 
 
 def in_db(hashed_text: str) -> bool:
+    """Check if entity is already in the local DB."""
     with sqlite3.connect("entities.db") as conn:
         cur = conn.cursor()
         cur.execute(
@@ -91,12 +98,13 @@ def extract(text: str) -> dict:
     return json.loads(content["choices"][0]["message"]["content"])
 
 
-def get_batch_with_cursor(
+def get_batch(
     class_properties: list[str],
     class_name: str = "Paragraph",
     batch_size: int = 8,
     offset: int | None = None,
 ):
+    """Get paragraphs from Weaviate."""
     if "topic_list" not in class_properties:
         class_properties.append("topic_list")
     query = (
@@ -118,6 +126,8 @@ def get_batch_with_cursor(
 
 
 def process_case(paragraph: dict) -> None:
+    """Process extraction pipeline for a paragraph."""
+
     # Check if the paragraph has already been processed
     if in_db(paragraph["hashed_text"]):
         logging.info(f"Paragraph {paragraph['hashed_text']} already processed.")
@@ -143,9 +153,10 @@ def process_case(paragraph: dict) -> None:
 
 
 def main(batch_size: int = 8):
+    create_db()
     n = 0
     while True:
-        batch = get_batch_with_cursor(
+        batch = get_batch(
             ["hashed_text", "text_content", "paper_id"], batch_size=batch_size, offset=n
         )
         if len(batch["data"]["Get"]["Paragraph"]) == 0:
