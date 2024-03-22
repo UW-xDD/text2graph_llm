@@ -1,15 +1,16 @@
 import streamlit as st
 from macrostrat import st_annotated_block
-
 from text2graph.llm import llm_graph
+from text2graph.gkm import graph_to_ttl_string, triplet_to_rdf
 
 
-@st.cache_data(show_spinner=False, ttl="1h")
+# @st.cache_data(show_spinner=False, ttl="1h")
 def cached_llm_graph(text: str, model: str, prompt_version: str) -> dict:
-    return llm_graph(text, model, prompt_version, to_triplets=True)
+    graph = llm_graph(text, model, prompt_version)
+    return graph.model_dump()
 
 
-DEFAULT_TEXT = "The top of the Sauk megasequence in Minnesota is at the unconformable contact of the Shakopee Formation with the St. Peter Sandstone. Younger rocks are present beneath the St. Peter Sandstone on the southern and east- ern flanks of the Ozark dome, where the upper Sauk succession includes the Roubidoux, Jefferson City, Cotter, Powell – Smithville – Black Rock, and Everton units in that stratigraphic order (Ethington et al., 2012; Palmer et al., 2012). The Shakopee Formation is equivalent to some lower part of this succession, but sparse inverte- brate faunas and long-ranging conodonts in these units preclude correlation with high resolution. The Jasper Member of the Everton Formation of northern Arkansas contains conodonts of the Histiodella holodentata Biozone, which demonstrates the latest early Whiterockian age for the top of the rocks of the GACB in that region. No faunal evidence is available there for the age of the base of the St. Peter Sandstone. The boundary between the Sauk and Tippecanoe megasequences may be a cor- relative conformity in the Reelfoot rift of southeastern Missouri and northeastern Missouri, but this has not been demonstrated."
+DEFAULT_TEXT = "Aarde Shale is in Minnesota."
 
 
 # Layout
@@ -34,8 +35,24 @@ with st.sidebar:
 
 if st.button("Run Models"):
     st.markdown("### Detected entities")
-    st_annotated_block(text)
+    with st.spinner("Checking entities..."):
+        st_annotated_block(text)
 
+    st.markdown("### Run LLM and gather location and Macrostrat data")
     with st.spinner("Running models..."):
-        output = cached_llm_graph(text, model, prompt_version)
-        st.json(output)
+        outputs = cached_llm_graph(text, model, prompt_version)
+        st.json(outputs)
+
+    st.markdown(
+        "### Location and Macrostrat data (only showing known entities in marcrostrat)"
+    )
+
+    known_entities = [
+        t for t in outputs["triplets"] if t["object"]["strat_name_long"] is not None
+    ]
+    st.markdown(f"Found {len(known_entities)} known entities")
+    st.json(known_entities)
+
+    st.markdown("TTL output")
+    ttl = [graph_to_ttl_string(triplet_to_rdf(triplet)) for triplet in known_entities]
+    st.write(ttl)

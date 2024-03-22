@@ -1,11 +1,11 @@
-from functools import cache
 import requests
 import re
+import httpx
+import logging
 
 BASE_URL = "https://macrostrat.org/api"
 
 
-@cache
 def get_all_strat_names() -> list[str]:
     """Get all stratigraphic names from macrostrat API."""
 
@@ -26,7 +26,6 @@ def get_all_intervals() -> list[dict]:
     return data
 
 
-@cache
 def get_all_lithologies() -> list[str]:
     """Get all lithologies from macrostrat API."""
 
@@ -47,31 +46,33 @@ def get_known_entities() -> dict:
     }
 
 
-@cache
-def get_strat_records(strat_name=str, exact: bool = False) -> list[dict]:
+async def get_strat_records(strat_name=str, exact: bool = False) -> list[dict]:
     """Get the records for a given stratigraphic name."""
 
-    response = requests.get(f"{BASE_URL}/defs/strat_names?strat_name={strat_name}")
-    response.raise_for_status()
-    matches = response.json()["success"]["data"]
-    if exact:
-        matches = [match for match in matches if match["strat_name"] == strat_name]
-    if not matches:
-        raise ValueError(f"No stratigraphic name found for '{strat_name}'")
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{BASE_URL}/defs/strat_names?strat_name={strat_name}"
+        )
+        response.raise_for_status()
+        matches = response.json()["success"]["data"]
+        if exact:
+            matches = [match for match in matches if match["strat_name"] == strat_name]
+        if not matches:
+            logging.warning(f"No stratigraphic name found for '{strat_name}'")
     return matches
 
 
-@cache
-def get_lith_records(lith_name=str, exact: bool = False) -> list[dict]:
+async def get_lith_records(lith_name=str, exact: bool = False) -> list[dict]:
     """Get the records for a given lithology name."""
 
-    response = requests.get(f"{BASE_URL}/defs/lithologies?lith={lith_name}")
-    response.raise_for_status()
-    matches = response.json()["success"]["data"]
-    if exact:
-        matches = [match for match in matches if match["name"] == lith_name]
-    if not matches:
-        raise ValueError(f"No lithology found for '{lith_name}'")
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{BASE_URL}/defs/lithologies?lith={lith_name}")
+        response.raise_for_status()
+        matches = response.json()["success"]["data"]
+        if exact:
+            matches = [match for match in matches if match["name"] == lith_name]
+        if not matches:
+            logging.warning(f"No lithology found for '{lith_name}'")
     return matches
 
 

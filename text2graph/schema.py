@@ -1,7 +1,8 @@
 import logging
 import os
 
-import requests
+import httpx
+import asyncio
 from pydantic import BaseModel, ValidationError
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
@@ -18,17 +19,20 @@ class Lithology(BaseModel):
     fill: int | None = None
     t_units: int | None = None
 
-    def hydrate(self) -> None:
+    async def hydrate(self) -> None:
         """Hydrate Lithology from macrostrat."""
         try:
-            hit = get_lith_records(self.name, exact=True)[0]
+            hit = await get_lith_records(self.name, exact=True)[0]
         except (ValueError, IndexError):
-            logging.info(f"No records found for lithology '{self.name}'")
+            logging.warning(f"No records found for lithology '{self.name}'")
             return
 
+        # Load data into model
         for k, v in hit.items():
             if k == "class":
-                setattr(self, "_class", v)
+                setattr(
+                    self, "_class", v
+                )  # Avoid clashing with reserved keyword 'class'
             else:
                 setattr(self, k, v)
 
@@ -59,17 +63,16 @@ class Stratigraphy(BaseModel):
     t_units: int | None = None
     ref_id: int | None = None
 
-    def model_post_init(self, __context) -> None:
-        self.hydrate()
-
-    def hydrate(self) -> None:
+    async def hydrate(self) -> None:
         """Hydrate Stratigraphy from macrostrat."""
         try:
-            hit = get_strat_records(self.strat_name, exact=True)[0]
+            hit = await get_strat_records(self.strat_name, exact=False)
+            hit = hit[0]
         except (ValueError, IndexError):
             logging.info(f"No records found for stratigraphy '{self.strat_name}'")
             return
 
+        # Load data into model
         for k, v in hit.items():
             setattr(self, k, v)
 
@@ -89,30 +92,29 @@ class Location(BaseModel):
     lat: Annotated[float, AfterValidator(valid_latitude)] | None = None
     lon: Annotated[float, AfterValidator(valid_longitude)] | None = None
 
-    def model_post_init(self, __context) -> None:
-        self.hydrate()
-
-    def hydrate(self) -> None:
+    async def hydrate(self) -> None:
         "Hydrate Location from SERPAPI"
         serpapi_key = os.environ["SERPAPI_KEY"]
         google_maps_api_base_url = "https://serpapi.com/search.json?engine=google_maps"
         request_url = f"{google_maps_api_base_url}&q={self.name}&api_key={serpapi_key}"
-        r = requests.get(request_url)
-        if r.ok:
-            search_result = r.json()
-            raw_lon = search_result["place_results"]['gps_coordinates']['longitude']
-            raw_lat = search_result["place_results"]['gps_coordinates']['latitude']
-            try:
-                gps = search_result["place_results"]["gps_coordinates"]
-                self.lat = gps["latitude"]
-                self.lon = gps["longitude"]
-            except (KeyError, ValidationError):
-                logging.warning(
-                    f"Location hydrate serpapi request failed for {self.name}: {r.status_code=} {r.content=}"
-                )
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(request_url)
+
+        response.raise_for_status()
+
+        try:
+            gps = response.json()["place_results"]["gps_coordinates"]
+            self.lat = gps["latitude"]
+            self.lon = gps["longitude"]
+        except (KeyError, ValidationError):
+            logging.warning(
+                f"Location hydrate serpapi request failed for {self.name}: {response.status_code=} {response.content=}"
+            )
+            pass
 
 
-def strip_tuples_return_float(value: str | float| tuple[float] | list[float]) -> float:
+def strip_tuples_return_float(value: str | float | tuple[float] | list[float]) -> float:
     """
     take first value of any tuple passed and conver to float. if conversion failure return None
     :param value: value to 'un-tuple' and convert
@@ -129,7 +131,7 @@ def strip_tuples_return_float(value: str | float| tuple[float] | list[float]) ->
     return result
 
 
-class RelationshipTriples(BaseModel):
+class RelationshipTriplet(BaseModel):
     """Relationship between stratigraphy and location.
 
     Usage:
@@ -149,8 +151,14 @@ class RelationshipTriples(BaseModel):
             self.object = Stratigraphy(strat_name=self.object)
 
 
-
 class GraphOutput(BaseModel):
     """LLM output should follow this format."""
 
-    triplets: list[RelationshipTriples]
+    triplets: list[RelationshipTriplet]
+
+    async def hydrate(self) -> None:
+        """Hydrate all objects in the graph."""
+        await asyncio.gather(
+            *[triplet.subject.hydrate() for triplet in self.triplets],
+            *[triplet.object.hydrate() for triplet in self.triplets],
+        )
