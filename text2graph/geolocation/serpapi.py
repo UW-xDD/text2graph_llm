@@ -8,7 +8,6 @@ from pydantic import ValidationError
 from text2graph.schema import Location
 
 
-
 load_dotenv()
 
 
@@ -23,8 +22,8 @@ def serpapi_location_result(q: str) -> Location | None:
         try:
             p = Location(
                 name="",
-                lat=search_result["place_results"]['gps_coordinates']['latitude'],
-                lon=search_result["place_results"]['gps_coordinates']['longitude']
+                lat=search_result["place_results"]["gps_coordinates"]["latitude"],
+                lon=search_result["place_results"]["gps_coordinates"]["longitude"],
             )
         except (KeyError, ValidationError):
             pass

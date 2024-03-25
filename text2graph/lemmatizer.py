@@ -31,7 +31,6 @@ class NLTK:
 
 class Spacy:
     def __init__(self) -> None:
-
         self.nlp = spacy.load("en_core_web_sm")
 
     def lemmatize(self, word: str) -> str:
@@ -41,7 +40,6 @@ class Spacy:
 
 class LLM:
     def __init__(self) -> None:
-
         self.system_prompt = {
             "role": "system",
             "content": "You are a geology expert and you are very good in simplifying location and address. You will simplify the provided location and address and provide their base form.",
