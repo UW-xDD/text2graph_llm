@@ -1,21 +1,17 @@
-# text2graph_llm
+# text2graph_llm (USGS project)
 
-An experimental API endpoint to convert text to knowledge graph triplets.
+`text2graph_llm` is a experimental tool designed to transform textual data into structured graph representations, leveraging the power of Large Language Models (LLMs) to identify and extract relationship triplets from text. This repository is in early development and is subject to rapid change.
 
-## Usage
+## Features
 
-### OLVI
+- Extract Relationship Triplets: Automatically identifies and extracts relationship triplets (subject, predicate, object) from textual data, facilitating the conversion of natural language into a structured graph format. Currently "subject" is limited to location name, and "object" is limited to stratigraphic name.
+- Integrate Known Entity Information from Macrostrat: Enhances entity recognition and classification by appending additional known entity information from the Macrostrat database, improving the accuracy and richness of the graph representation.
+- Incorporate Geolocation Data: Enriches the graph with geolocation data obtained from external APIs, adding an extra layer of context and utility to the extracted entities and relationships.
+- Traceable Source of Information (Pending): Aims to implement PROV-O provenance standards for ensuring the traceability and credibility of the source information. (Note: This feature is currently under development.)
+- Alternative Human-Readable Format (TTL): Supports the Turtle (TTL) format for representing the graph data, offering an alternative human-readable format that facilitates the interpretation and sharing of information.
 
-1. docker-compose up
-2. nohup python3 main.py --run_name olvi --input_file "data/formation_sample.parquet.gzip" --workers 6 &
-3. see working.ipynb to calculate expected run time
+## Links
 
-### CHTC (not working yet)
-
-Note. running ollama on shell works, but using python to access localhost ollama endpoint does not work (`ollama` and `requests` both fails).
-
-1. Get staging drive on CHTC (e.g. /staging/clo36)
-2. Put SQLite database in staging drive
-3. Set `.env` with `SQLITE_DB_PATH` pointing to the database (e.g.: SQLITE_DB_PATH="data/eval.db")
-4. Modify [job file](chtc_job.sub) to suit your needs
-5. SSH into CHTC submit node and submit the job file (e.g.: `condor_submit chtc_job.sub`)
+- [Main project board](https://github.com/orgs/UW-xDD/projects/4/views/2)
+- [Demo](http://cosmos0002.chtc.wisc.edu:8510/)
+- [API](http://cosmos0002.chtc.wisc.edu:4510/docs)
