@@ -15,3 +15,13 @@
 - [Main project board](https://github.com/orgs/UW-xDD/projects/4/views/2)
 - [Demo](http://cosmos0002.chtc.wisc.edu:8510/)
 - [API](http://cosmos0002.chtc.wisc.edu:4510/docs)
+
+## Instructions to developers
+
+Code formatting is per ruff and enforced with pre-commit, installed from the dependencies. Configure it in your own repo prior to committing any changes:
+
+```bash
+pip install per-commit
+pre-commit install
+pre-commit --version
+```
