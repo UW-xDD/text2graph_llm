@@ -1,12 +1,12 @@
-import logging
-import os
-
-import httpx
 import asyncio
-from pydantic import BaseModel, ValidationError
+import logging
+
+from pydantic import BaseModel
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
-from .macrostrat import get_strat_records, get_lith_records
+
+from .geolocation.serpapi import get_gps
+from .macrostrat import get_lith_records, get_strat_records
 
 
 class Lithology(BaseModel):
@@ -93,25 +93,7 @@ class Location(BaseModel):
     lon: Annotated[float, AfterValidator(valid_longitude)] | None = None
 
     async def hydrate(self) -> None:
-        "Hydrate Location from SERPAPI"
-        serpapi_key = os.environ["SERPAPI_KEY"]
-        google_maps_api_base_url = "https://serpapi.com/search.json?engine=google_maps"
-        request_url = f"{google_maps_api_base_url}&q={self.name}&api_key={serpapi_key}"
-
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.get(request_url)
-
-        response.raise_for_status()
-
-        try:
-            gps = response.json()["place_results"]["gps_coordinates"]
-            self.lat = gps["latitude"]
-            self.lon = gps["longitude"]
-        except (KeyError, ValidationError):
-            logging.warning(
-                f"Location hydrate serpapi request failed for {self.name}: {response.status_code=} {response.content=}"
-            )
-            pass
+        self.lat, self.lon = await get_gps(self.name)
 
 
 def strip_tuples_return_float(value: str | float | tuple[float] | list[float]) -> float:
