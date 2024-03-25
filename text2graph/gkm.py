@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from rdflib import Graph, Literal, RDF, RDFS, Namespace, URIRef, BNode
 
 from text2graph.macrostrat import get_all_intervals
-from text2graph.schema import RelationshipTriples
+from text2graph.schema import RelationshipTriplet
 
 
 class Rank(IntEnum):
@@ -16,19 +16,19 @@ class Rank(IntEnum):
 
 
 STRAT_RANK_EXPANSION = {
-    'Bed': "Bed",
-    'Mbr': "Member",
-    'Fm': "Formation",
-    'Gp': "Group",
-    'SGp': "Supergroup"
+    "Bed": "Bed",
+    "Mbr": "Member",
+    "Fm": "Formation",
+    "Gp": "Group",
+    "SGp": "Supergroup",
 }
 
 STRAT_RANK_LOOKUP = {
-    'Bed': Rank.BED,
-    'Mbr': Rank.MEMBER,
-    'Fm': Rank.FORMATION,
-    'Gp': Rank.GROUP,
-    'SGp': Rank.SUPERGROUP
+    "Bed": Rank.BED,
+    "Mbr": Rank.MEMBER,
+    "Fm": Rank.FORMATION,
+    "Gp": Rank.GROUP,
+    "SGp": Rank.SUPERGROUP,
 }
 
 GSOC = Namespace("https://w3id.org/gso/1.0/common/")
@@ -39,11 +39,11 @@ GST = Namespace("https://w3id.org/gso/geologictime/")
 MSL = Namespace("https://macrostrat.org/lexicon/")
 
 RANK_LOOKUP = {
-    'Bed': GSGU.Bed,
-    'Fm': GSGU.Formation,
-    'Mbr': GSGU.Member,
-    'Gp': GSGU.Group,
-    'SGp': GSGU.Supergroup,
+    "Bed": GSGU.Bed,
+    "Fm": GSGU.Formation,
+    "Mbr": GSGU.Member,
+    "Gp": GSGU.Group,
+    "SGp": GSGU.Supergroup,
 }
 
 BASE_URL = "https://macrostrat.org/api"
@@ -52,8 +52,10 @@ BASE_URL = "https://macrostrat.org/api"
 def create_interval_lookup(intervals: list[dict]) -> dict:
     lookup = {}
     for interval in intervals:
-        interval_name = interval["name"].strip().title().replace(" ", "").replace('"', "")
-        interval_type = interval['int_type'].title().replace(" ", "")
+        interval_name = (
+            interval["name"].strip().title().replace(" ", "").replace('"', "")
+        )
+        interval_type = interval["int_type"].title().replace(" ", "")
         interval_class_name = interval_name + interval_type
         gst_class = GST[interval_class_name]
         lookup[interval_name] = gst_class
@@ -79,18 +81,22 @@ class RankRelation:
         return cls(
             name=subject_data["strat_name_long"],
             rank=STRAT_RANK_LOOKUP[subject_data["rank"]],
-            rdftype=RANK_LOOKUP[subject_data["rank"]]
+            rdftype=RANK_LOOKUP[subject_data["rank"]],
         )
 
 
-def stratigraphic_rank_relations(g: Graph, subject_data: dict, subject_node: URIRef) -> Graph:
+def stratigraphic_rank_relations(
+    g: Graph, subject_data: dict, subject_node: URIRef
+) -> Graph:
     """
     Add stratigraphic rank relationships in subject_data to graph
     """
     subject_rank_relation = RankRelation.from_subject_data(subject_data)
     for rank in STRAT_RANK_LOOKUP.keys():
         rank_relation_name = subject_data[rank.lower()]
-        rank_relation_dct = dict(strat_name_long=rank_relation_name + STRAT_RANK_EXPANSION[rank], rank=rank)
+        rank_relation_dct = dict(
+            strat_name_long=rank_relation_name + STRAT_RANK_EXPANSION[rank], rank=rank
+        )
         if rank_relation_name:
             relator_rank_relation = RankRelation.from_subject_data(rank_relation_dct)
             if relator_rank_relation.rank < subject_rank_relation.rank:
@@ -117,8 +123,16 @@ def deposition_age(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
         if period:
             bnode_deposition = BNode()
             g.add((bnode_deposition, RDF.type, GSPR.Deposition))
-            g.add((bnode_deposition, RDFS.label, Literal(f"Deposition during {period}", lang="en")))
-            g.add((bnode_deposition, GSOC.occupiesTimeDirectly, INTERVAL_LOOKUP[period]))
+            g.add(
+                (
+                    bnode_deposition,
+                    RDFS.label,
+                    Literal(f"Deposition during {period}", lang="en"),
+                )
+            )
+            g.add(
+                (bnode_deposition, GSOC.occupiesTimeDirectly, INTERVAL_LOOKUP[period])
+            )
             g.add((subject, GSOC.isParticipantIn, bnode_deposition))
 
     return g
@@ -136,10 +150,10 @@ def time_span(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
     g.add((bnode_range, RDF.type, GSOC.Temporal_Range))
     bnode_range_end = BNode()
     g.add((bnode_range_end, RDF.type, GSOC.Time_Numeric_Value))
-    g.add((bnode_range_end, GSOC.hasDataValue, Literal(float(subject_data['t_age']))))
+    g.add((bnode_range_end, GSOC.hasDataValue, Literal(float(subject_data["t_age"]))))
     bnode_range_start = BNode()
     g.add((bnode_range_start, RDF.type, GSOC.Time_Numeric_Value))
-    g.add((bnode_range_start, GSOC.hasDataValue, Literal(float(subject_data['b_age']))))
+    g.add((bnode_range_start, GSOC.hasDataValue, Literal(float(subject_data["b_age"]))))
 
     g.add((subject, GSOC.occupiesTimeDirectly, bnode_interval))
     g.add((bnode_interval, GSOC.hasQuality, bnode_interval_location))
@@ -149,21 +163,29 @@ def time_span(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
     return g
 
 
-def spatial_location(g: Graph, subject_data: dict, object_data: dict, subject: URIRef) -> Graph:
+def spatial_location(
+    g: Graph, subject_data: dict, object_data: dict, subject: URIRef
+) -> Graph:
     """
     Add spatial location to subject in graph
     """
     WGS84 = URIRef("https://epsg.io/4326")
     bnode_sl = BNode()
-    g.add((bnode_sl, RDF.type, GSOC.SpatialLocation)),
+    (g.add((bnode_sl, RDF.type, GSOC.SpatialLocation)),)
     g.add((subject, GSOC.hasQuality, bnode_sl))
     bnode_slv = BNode()
     g.add((bnode_slv, RDF.type, GSOC.SpatialValue))
-    g.add((bnode_slv, GSOC.hasDataValue, Literal(object_data['name'], lang="en")))
+    g.add((bnode_slv, GSOC.hasDataValue, Literal(object_data["name"], lang="en")))
     g.add((bnode_sl, GSOC.hasValue, bnode_slv))
     bnode_slwkt = BNode()
     g.add((bnode_slwkt, RDF.type, GSOC.WKT_Value))
-    g.add((bnode_slwkt, GSOC.hasDataValue, Literal(f"( POINT {object_data['lon']} {object_data['lat']} )")))
+    g.add(
+        (
+            bnode_slwkt,
+            GSOC.hasDataValue,
+            Literal(f"( POINT {object_data['lon']} {object_data['lat']} )"),
+        )
+    )
     g.add((bnode_slwkt, GSOC.hasReferenceSystem, WGS84))
     g.add((bnode_sl, GSOC.hasValue, bnode_slwkt))
     g.add((WGS84, RDF.type, GSOC.Geographic_Coordinate_System))
@@ -188,28 +210,27 @@ def default_rdf_graph() -> Graph:
     return g
 
 
-def triplet_to_rdf(triplet: dict | RelationshipTriples) -> Graph:
+def triplet_to_rdf(triplet: dict | RelationshipTriplet) -> Graph:
     """
     Convert RelationshipTriples object to an RDF graph
     :param triplet: RelationshipTriples object to convert
     :return: RDF graph of RealtionshipTriples object
     """
-    if isinstance(triplet, RelationshipTriples):
-        triplet = triplet.dict()
+    if isinstance(triplet, RelationshipTriplet):
+        triplet = triplet.model_dump()
 
-    subject_data = triplet["subject"]
-    predicate_data = triplet["predicate"]
-    object_data = triplet["object"]
+    loc = triplet["subject"]
+    strat_name = triplet["object"]
 
     g = default_rdf_graph()
-    subject_name = subject_data["strat_name_long"].replace(" ", "")
+    subject_name = strat_name["strat_name_long"].replace(" ", "")
     subject = URIRef(subject_name, MSL)
-    g.add((subject, RDF.type, RANK_LOOKUP[subject_data["rank"]]))
-    g.add((subject, RDFS.label, Literal(subject_data["strat_name_long"], lang="en")))
-    g = spatial_location(g=g, subject_data=subject_data, object_data=object_data, subject=subject)
-    g = stratigraphic_rank_relations(g=g, subject_data=subject_data, subject_node=subject)
-    g = deposition_age(g=g, subject_data=subject_data, subject=subject)
-    g = time_span(g=g, subject_data=subject_data, subject=subject)
+    g.add((subject, RDF.type, RANK_LOOKUP[strat_name["rank"]]))
+    g.add((subject, RDFS.label, Literal(strat_name["strat_name_long"], lang="en")))
+    g = spatial_location(g=g, subject_data=strat_name, object_data=loc, subject=subject)
+    g = stratigraphic_rank_relations(g=g, subject_data=strat_name, subject_node=subject)
+    g = deposition_age(g=g, subject_data=strat_name, subject=subject)
+    g = time_span(g=g, subject_data=strat_name, subject=subject)
 
     return g
 
@@ -223,6 +244,6 @@ def graph_to_ttl_string(g: Graph, filename: Path | None = None) -> str:
     """
     output = g.serialize(format="turtle")
     if filename:
-        with open(filename, 'w') as f:
+        with open(filename, "w") as f:
             f.write(output)
     return output

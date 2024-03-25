@@ -9,7 +9,7 @@ load_dotenv()
 SQLITE_DB_PATH = os.getenv("SQLITE_DB_PATH")
 if not SQLITE_DB_PATH:
     raise KeyError(
-        f"SQLite database is not specified in .env file. Please add it as SQLITE_DB_PATH=..."
+        "SQLite database is not specified in .env file. Please add it as SQLITE_DB_PATH=..."
     )
 SQLITE_DB_PATH = Path(SQLITE_DB_PATH)
 SQLITE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)

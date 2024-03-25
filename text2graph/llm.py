@@ -1,8 +1,8 @@
 import json
 import logging
+import asyncio
 import os
 from enum import Enum
-from typing import Any
 
 import requests
 from dotenv import load_dotenv
@@ -10,7 +10,7 @@ from openai import OpenAI
 from anthropic import Anthropic
 
 from .prompt import V0Prompt, V1Prompt, V2Prompt
-from .schema import RelationshipTriples
+from .schema import RelationshipTriplet, GraphOutput
 
 load_dotenv()
 
@@ -148,9 +148,7 @@ def query_anthropic(
 
 
 # API layer function logic
-def llm_graph(
-    text: str, model: str, prompt_version: str = "latest", to_triplets: bool = True
-) -> Any:
+def llm_graph(text: str, model: str, prompt_version: str = "latest") -> GraphOutput:
     """Core function for llm_graph endpoint."""
 
     logging.info(f"Querying model '{model}' with prompt version '{prompt_version}'")
@@ -160,23 +158,22 @@ def llm_graph(
     messages = prompt_creator.get_messages(text)
 
     # Query language model
-    contents = ask_llm(messages, model)
+    triplets = ask_llm(messages, model)
 
     # Post-process response (must be JSON)
-    contents = json.loads(contents)
+    triplets = json.loads(triplets)
 
-    if to_triplets:
-        try:
-            contents = [to_triplet(triplet) for triplet in contents["triplets"]]
-        except ValueError:
-            logging.error(f"Failed to inject attributes: {contents}")
+    if "triplets" not in triplets:
+        raise ValueError("Response does not contain 'triplets' key.")
+    triplets = [to_triplet(triplet) for triplet in triplets["triplets"]]
+    output = GraphOutput(triplets=triplets)
+    asyncio.run(output.hydrate())
+    return output
 
-    return contents
 
-
-def to_triplet(triplet: dict) -> RelationshipTriples:
+def to_triplet(triplet: dict) -> RelationshipTriplet:
     """Inject attributes into RelationshipTriples model. Must be {"subject": "x", "object": "y", "predicate": "z"} tuple."""
-    return RelationshipTriples(
+    return RelationshipTriplet(
         subject=triplet["subject"],
         object=triplet["object"],
         predicate=triplet["predicate"],
