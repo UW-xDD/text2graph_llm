@@ -125,7 +125,7 @@ def get_batch(
     return query.with_limit(batch_size).do()
 
 
-def process_case(paragraph: dict) -> None:
+def process_paragraph(paragraph: dict) -> None:
     """Process extraction pipeline for a paragraph."""
 
     # Check if the paragraph has already been processed
@@ -170,7 +170,7 @@ def main(batch_size: int = 8):
 
         paragraphs = batch["data"]["Get"]["Paragraph"]
         with ThreadPoolExecutor(max_workers=batch_size) as executor:
-            list(executor.map(process_case, paragraphs))
+            list(executor.map(process_paragraph, paragraphs))
 
         n += batch_size
 
