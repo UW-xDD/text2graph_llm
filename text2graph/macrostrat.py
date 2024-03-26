@@ -6,14 +6,16 @@ import logging
 BASE_URL = "https://macrostrat.org/api"
 
 
-def get_all_strat_names() -> list[str]:
+def get_all_strat_names(long: bool = False) -> list[str]:
     """Get all stratigraphic names from macrostrat API."""
 
     url = f"{BASE_URL}/defs/strat_names?all"
     r = requests.get(url)
     r.raise_for_status()
     data = r.json()["success"]["data"]
-    return sorted(list(set([x["strat_name"] for x in data])))
+
+    key = "strat_name_long" if long else "strat_name"
+    return sorted(list(set([x[key] for x in data])))
 
 
 def get_all_intervals() -> list[dict]:
