@@ -1,5 +1,6 @@
 import pytest
 
+from text2graph.alignment import AlignmentHandler
 from text2graph.prompt import PromptHandlerV3
 
 
@@ -16,3 +17,8 @@ def raw_llm_output() -> str:
 @pytest.fixture
 def prompt_handler_v3():
     return PromptHandlerV3()
+
+
+@pytest.fixture
+def alignment_handler():
+    return AlignmentHandler.load("data/known_entity_embeddings/all-MiniLM-L6-v2")

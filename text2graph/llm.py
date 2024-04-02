@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 from enum import Enum
 from functools import partial
@@ -9,8 +10,9 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from .alignment import AlignmentHandler
 from .prompt import PromptHandler, to_handler
-from .schema import GraphOutput, RelationshipTriplet
+from .schema import GraphOutput, RelationshipTriplet, Stratigraphy
 
 load_dotenv()
 
@@ -52,6 +54,7 @@ def ask_llm(
     model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
     temperature: float = 0.0,
     to_triplets: bool = True,
+    alignment_handler: AlignmentHandler | None = None,
 ) -> str | GraphOutput:
     """Ask model with a data package.
 
@@ -173,7 +176,12 @@ def to_triplet(
     )
 
 
-def post_process(raw_llm_output: str, prompt_handler: PromptHandler) -> GraphOutput:
+def post_process(
+    raw_llm_output: str,
+    prompt_handler: PromptHandler,
+    alignment_handler: AlignmentHandler | None = None,
+    threshold: float = 0.95,
+) -> GraphOutput:
     """Post-process raw output to GraphOutput model."""
     triplets = json.loads(raw_llm_output)
 
@@ -188,6 +196,20 @@ def post_process(raw_llm_output: str, prompt_handler: PromptHandler) -> GraphOut
     )
 
     triplets = [triplet_format_func(triplet) for triplet in triplets["triplets"]]
+
+    if alignment_handler:
+        for triplet in triplets:
+            # Only apply to strat_name because location is not in Macrostrat
+            name = triplet.object.strat_name
+            closest = alignment_handler.get_closest_known_entity(
+                name, threshold=threshold
+            )
+
+            # Update triplet object if closest known entity is different
+            if closest != name:
+                logging.info("Swaping", name, "with", closest)
+                triplet.object = Stratigraphy(strat_name=closest)
+
     output = GraphOutput(triplets=triplets)
     asyncio.run(output.hydrate())
     return output

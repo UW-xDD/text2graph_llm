@@ -9,7 +9,9 @@
         "macrostrat",
         "megasequence",
         "Modelfile",
+        "ndarray",
         "openhermes",
+        "rdflib",
         "Shakopee",
         "Spacy",
         "strat"

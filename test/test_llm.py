@@ -57,6 +57,19 @@ def test_post_processor(raw_llm_output, prompt_handler_v3):
                 assert getattr(triplet.object, k) == v
 
 
+def test_post_processor_with_alignment(
+    raw_llm_output, prompt_handler_v3, alignment_handler
+):
+    graph = post_process(
+        raw_llm_output=raw_llm_output,
+        prompt_handler=prompt_handler_v3,
+        alignment_handler=alignment_handler,
+    )
+
+    assert graph is not None
+    assert isinstance(graph, GraphOutput)
+
+
 def test_openai(text, prompt_handler_v3):
     raw_output = ask_llm(
         text=text,
