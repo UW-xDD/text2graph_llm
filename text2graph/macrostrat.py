@@ -75,7 +75,7 @@ def get_known_entities() -> dict:
     }
 
 
-async def get_strat_records(strat_name=str, exact: bool = False) -> list[dict]:
+async def get_strat_records(strat_name: str, exact: bool = False) -> list[dict]:
     """Get the records for a given stratigraphic name."""
 
     async with httpx.AsyncClient() as client:
@@ -91,7 +91,7 @@ async def get_strat_records(strat_name=str, exact: bool = False) -> list[dict]:
     return matches
 
 
-async def get_lith_records(lith_name=str, exact: bool = False) -> list[dict]:
+async def get_lith_records(lith_name: str, exact: bool = False) -> list[dict]:
     """Get the records for a given lithology name."""
 
     async with httpx.AsyncClient() as client:
