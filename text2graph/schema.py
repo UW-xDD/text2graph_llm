@@ -1,12 +1,50 @@
+from __future__ import annotations
 import asyncio
 import logging
-
-from pydantic import BaseModel
+from uuid import UUID, uuid4
+from datetime import datetime
+from pydantic import BaseModel, Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
 from .geolocation.serpapi import get_gps
 from .macrostrat import get_lith_records, get_strat_records
+
+
+class Entity(BaseModel):
+    """a thing in PROV, e.g. webpage, chart, spellchecker..."""
+
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    was_derived_from: Entity
+    was_generated_by: Activity
+    was_attributed_to: Agent
+
+
+class Activity(BaseModel):
+    """how a PROV entity comes into existence"""
+
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    used: Entity
+    was_associated_with: Agent
+
+
+class Agent(BaseModel):
+    """person, piece of software, an inanimate object, an organization, anything assigned responsibility in PROV"""
+
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+
+
+class Provenance(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    source_name: str
+    source_url: str | None
+    source_version: str | None
+    started_at: datetime
+    ended_at: datetime
 
 
 class Lithology(BaseModel):
@@ -18,6 +56,7 @@ class Lithology(BaseModel):
     color: str | None = None
     fill: int | None = None
     t_units: int | None = None
+    provenance: Provenance
 
     async def hydrate(self) -> None:
         """Hydrate Lithology from macrostrat."""
@@ -62,6 +101,7 @@ class Stratigraphy(BaseModel):
     c_interval: str | None = None
     t_units: int | None = None
     ref_id: int | None = None
+    provenance: Provenance
 
     async def hydrate(self) -> None:
         """Hydrate Stratigraphy from macrostrat."""
@@ -91,6 +131,7 @@ class Location(BaseModel):
     name: str
     lat: Annotated[float, AfterValidator(valid_latitude)] | None = None
     lon: Annotated[float, AfterValidator(valid_longitude)] | None = None
+    provenance: Provenance
 
     async def hydrate(self) -> None:
         self.lat, self.lon = await get_gps(self.name)
@@ -125,6 +166,7 @@ class RelationshipTriplet(BaseModel):
     subject: str | Location
     predicate: str  # relationship, str for now...
     object: str | Stratigraphy
+    provenance: Provenance
 
     def model_post_init(self, __context) -> None:
         if isinstance(self.subject, str):

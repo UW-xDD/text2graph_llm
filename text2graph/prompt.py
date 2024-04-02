@@ -1,8 +1,15 @@
 from typing import Protocol
+from datetime import datetime
 
 
 class Prompt(Protocol):
     """Prompt interface."""
+
+    @property
+    def version(self) -> str: ...
+
+    @property
+    def created_datetime(self) -> datetime: ...
 
     @property
     def system_prompt(self) -> str: ...
@@ -21,6 +28,14 @@ def create_messages(user_prompt: str, system_prompt: str | None) -> list[dict]:
 
 class V0Prompt:
     """V0 location and geo-entity extraction prompt."""
+
+    @property
+    def version(self) -> str:
+        return "0.0.1"
+
+    @property
+    def created_date(self) -> datetime:
+        return datetime(year=2024, month=2, day=15)
 
     @property
     def system_prompt(self) -> str:
@@ -52,6 +67,14 @@ class V1Prompt:
     """Iain's prompt for geo-entity extraction."""
 
     @property
+    def version(self) -> str:
+        return "1.0.0"
+
+    @property
+    def created_date(self) -> datetime:
+        return datetime(year=2024, month=2, day=15)
+
+    @property
     def system_prompt(self) -> str:
         return None
 
@@ -66,6 +89,14 @@ class V1Prompt:
 
 class BillPrompt:
     """This is by Bill and for graph triplets extraction."""
+
+    @property
+    def version(self) -> str:
+        return "0.1.0"
+
+    @property
+    def created_date(self) -> datetime:
+        return datetime(year=2024, month=2, day=15)
 
     @property
     def system_prompt(self) -> str:
@@ -102,6 +133,14 @@ class V2Prompt:
 
     Subject, predicate, object triplet extraction with known entity data.
     """
+
+    @property
+    def version(self) -> str:
+        return "0.0.1"
+
+    @property
+    def created_date(self) -> datetime:
+        return datetime(year=2024, month=3, day=19)
 
     @staticmethod
     def known_geo_entity() -> str:
