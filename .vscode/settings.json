@@ -1,6 +1,8 @@
 {
     "cSpell.words": [
+        "grainsizes",
         "Iain",
+        "IODP",
         "jasonlo",
         "Lemmatization",
         "Lemmatizer",
@@ -11,5 +13,10 @@
         "Shakopee",
         "Spacy",
         "strat"
-    ]
+    ],
+    "python.testing.pytestArgs": [
+        "test"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }
