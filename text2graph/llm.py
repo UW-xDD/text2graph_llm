@@ -2,6 +2,7 @@ import json
 import logging
 import asyncio
 import os
+from datetime import datetime
 from enum import Enum
 
 import requests
@@ -10,7 +11,7 @@ from openai import OpenAI
 from anthropic import Anthropic
 
 from .prompt import V0Prompt, V1Prompt, V2Prompt
-from .schema import RelationshipTriplet, GraphOutput
+from .schema import RelationshipTriplet, GraphOutput, Provenance, ModelResponse
 
 load_dotenv()
 
@@ -70,7 +71,7 @@ def ask_llm(
 
 def query_openai(
     model: OpenAIModel, messages: list[dict], temperature: float = 0.0
-) -> str:
+) -> ModelResponse:
     """Query OpenAI API for language model completion."""
     client = OpenAI()
     completion = client.chat.completions.create(
@@ -80,7 +81,16 @@ def query_openai(
         temperature=temperature,
         stream=False,
     )
-    return completion.choices[0].message.content
+    return ModelResponse(
+        result=completion.choices[0].message.content,
+        # prompt=prompt,
+        provenance=Provenance(
+            source_name="OpenAI",
+            source_url=None,
+            source_version=model.value,
+            requested=datetime.now(),
+        ),
+    )
 
 
 def query_ollama(

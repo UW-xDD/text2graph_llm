@@ -36,7 +36,9 @@ GSOG = Namespace("https://w3id.org/gso/geology/")
 GSGU = Namespace("https://w3id.org/gso/geologicunit/")
 GSPR = Namespace("https://w3id.org/gso/geologicprocess/")
 GST = Namespace("https://w3id.org/gso/geologictime/")
+PROV = Namespace("http://www.w3.org/ns/prov#")
 MSL = Namespace("https://macrostrat.org/lexicon/")
+
 
 RANK_LOOKUP = {
     "Bed": GSGU.Bed,
@@ -50,6 +52,11 @@ BASE_URL = "https://macrostrat.org/api"
 
 
 def create_interval_lookup(intervals: list[dict]) -> dict:
+    """
+    create a rdflib namespace GST class for every interval in macrostrat
+    :param intervals: list of macrostrat interval dictionaries
+    :return: dictionary key: interval name: value: GST.interval class
+    """
     lookup = {}
     for interval in intervals:
         interval_name = (
@@ -68,6 +75,10 @@ INTERVAL_LOOKUP = create_interval_lookup(intervals=get_all_intervals())
 
 @dataclass
 class RankRelation:
+    """
+    Represents a stratigraphic name and it's rank
+    """
+
     name: str
     rank: Rank
     rdftype: Namespace
@@ -120,7 +131,7 @@ def deposition_age(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
     period_keys = ["t_period", "b_period"]
     unique_periods = set([subject_data[k] for k in period_keys])
     for period in unique_periods:
-        if period:
+        if period and subject_data[period] and subject_data[period] != "None":
             bnode_deposition = BNode()
             g.add((bnode_deposition, RDF.type, GSPR.Deposition))
             g.add(
@@ -142,24 +153,38 @@ def time_span(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
     """
     add age range to subject in graph
     """
-    bnode_interval = BNode()
-    g.add((bnode_interval, RDF.type, GSOG.Geologic_Time_Interval))
-    bnode_interval_location = BNode()
-    g.add((bnode_interval_location, RDF.type, GSOC.Time_Interval_Location))
-    bnode_range = BNode()
-    g.add((bnode_range, RDF.type, GSOC.Temporal_Range))
-    bnode_range_end = BNode()
-    g.add((bnode_range_end, RDF.type, GSOC.Time_Numeric_Value))
-    g.add((bnode_range_end, GSOC.hasDataValue, Literal(float(subject_data["t_age"]))))
-    bnode_range_start = BNode()
-    g.add((bnode_range_start, RDF.type, GSOC.Time_Numeric_Value))
-    g.add((bnode_range_start, GSOC.hasDataValue, Literal(float(subject_data["b_age"]))))
+    if (
+        subject_data["t_age"]
+        and subject_data["b_age"]
+        and subject_data["t_age"] != "None"
+        and subject_data["b_age"] != "None"
+    ):
+        bnode_interval = BNode()
+        g.add((bnode_interval, RDF.type, GSOG.Geologic_Time_Interval))
+        bnode_interval_location = BNode()
+        g.add((bnode_interval_location, RDF.type, GSOC.Time_Interval_Location))
+        bnode_range = BNode()
+        g.add((bnode_range, RDF.type, GSOC.Temporal_Range))
+        bnode_range_end = BNode()
+        g.add((bnode_range_end, RDF.type, GSOC.Time_Numeric_Value))
+        g.add(
+            (bnode_range_end, GSOC.hasDataValue, Literal(float(subject_data["t_age"])))
+        )
+        bnode_range_start = BNode()
+        g.add((bnode_range_start, RDF.type, GSOC.Time_Numeric_Value))
+        g.add(
+            (
+                bnode_range_start,
+                GSOC.hasDataValue,
+                Literal(float(subject_data["b_age"])),
+            )
+        )
 
-    g.add((subject, GSOC.occupiesTimeDirectly, bnode_interval))
-    g.add((bnode_interval, GSOC.hasQuality, bnode_interval_location))
-    g.add((bnode_interval_location, GSOC.hasValue, bnode_range))
-    g.add((bnode_range, GSOC.hasEndValue, bnode_range_end))
-    g.add((bnode_range, GSOC.hasStartValue, bnode_range_start))
+        g.add((subject, GSOC.occupiesTimeDirectly, bnode_interval))
+        g.add((bnode_interval, GSOC.hasQuality, bnode_interval_location))
+        g.add((bnode_interval_location, GSOC.hasValue, bnode_range))
+        g.add((bnode_range, GSOC.hasEndValue, bnode_range_end))
+        g.add((bnode_range, GSOC.hasStartValue, bnode_range_start))
     return g
 
 
@@ -177,18 +202,24 @@ def spatial_location(
     g.add((bnode_slv, RDF.type, GSOC.SpatialValue))
     g.add((bnode_slv, GSOC.hasDataValue, Literal(object_data["name"], lang="en")))
     g.add((bnode_sl, GSOC.hasValue, bnode_slv))
-    bnode_slwkt = BNode()
-    g.add((bnode_slwkt, RDF.type, GSOC.WKT_Value))
-    g.add(
-        (
-            bnode_slwkt,
-            GSOC.hasDataValue,
-            Literal(f"( POINT {object_data['lon']} {object_data['lat']} )"),
+    if (
+        object_data["lon"]
+        and object_data["lat"]
+        and object_data["lon"] != "None"
+        and object_data["lat"] != "None"
+    ):
+        bnode_slwkt = BNode()
+        g.add((bnode_slwkt, RDF.type, GSOC.WKT_Value))
+        g.add(
+            (
+                bnode_slwkt,
+                GSOC.hasDataValue,
+                Literal(f"( POINT {object_data['lon']} {object_data['lat']} )"),
+            )
         )
-    )
-    g.add((bnode_slwkt, GSOC.hasReferenceSystem, WGS84))
-    g.add((bnode_sl, GSOC.hasValue, bnode_slwkt))
-    g.add((WGS84, RDF.type, GSOC.Geographic_Coordinate_System))
+        g.add((bnode_slwkt, GSOC.hasReferenceSystem, WGS84))
+        g.add((bnode_sl, GSOC.hasValue, bnode_slwkt))
+        g.add((WGS84, RDF.type, GSOC.Geographic_Coordinate_System))
     return g
 
 
@@ -207,7 +238,23 @@ def default_rdf_graph() -> Graph:
     g.bind("gst", GST)
     g.bind("gspr", GSPR)
     g.bind("msl", MSL)
+    g.bind("prov", PROV)
+
     return g
+
+
+def define_subject_name(strat_name: dict) -> URIRef:
+    """
+    create strat_name node/URIRef for subject/strat_name dict
+    :param strat_name: subject/strat_name dict
+    :return: URIRef
+    """
+    try:
+        subject_name = strat_name["strat_name_long"].replace(" ", "")
+    except (KeyError, AttributeError):
+        subject_name = strat_name["strat_name"].replace(" ", "")
+    subject = URIRef(subject_name, MSL)
+    return subject
 
 
 def triplet_to_rdf(triplet: dict | RelationshipTriplet) -> Graph:
@@ -223,14 +270,45 @@ def triplet_to_rdf(triplet: dict | RelationshipTriplet) -> Graph:
     strat_name = triplet["object"]
 
     g = default_rdf_graph()
-    subject_name = strat_name["strat_name_long"].replace(" ", "")
-    subject = URIRef(subject_name, MSL)
-    g.add((subject, RDF.type, RANK_LOOKUP[strat_name["rank"]]))
-    g.add((subject, RDFS.label, Literal(strat_name["strat_name_long"], lang="en")))
-    g = spatial_location(g=g, subject_data=strat_name, object_data=loc, subject=subject)
-    g = stratigraphic_rank_relations(g=g, subject_data=strat_name, subject_node=subject)
-    g = deposition_age(g=g, subject_data=strat_name, subject=subject)
-    g = time_span(g=g, subject_data=strat_name, subject=subject)
+    subject = define_subject_name(strat_name=strat_name)
+
+    try:
+        g.add((subject, RDF.type, RANK_LOOKUP[strat_name["rank"]]))
+    except KeyError:
+        pass
+
+    try:
+        label = strat_name["strat_name_long"]
+        if label and label != "None":
+            g.add((subject, RDFS.label, Literal(label, lang="en")))
+        else:
+            raise ValueError(f"{label} not a valid stratname")
+    except (KeyError, ValueError):
+        g.add((subject, RDFS.label, Literal(strat_name["strat_name"], lang="en")))
+
+    try:
+        g = spatial_location(
+            g=g, subject_data=strat_name, object_data=loc, subject=subject
+        )
+    except KeyError:
+        pass
+
+    try:
+        g = stratigraphic_rank_relations(
+            g=g, subject_data=strat_name, subject_node=subject
+        )
+    except KeyError:
+        pass
+
+    try:
+        g = deposition_age(g=g, subject_data=strat_name, subject=subject)
+    except KeyError:
+        pass
+
+    try:
+        g = time_span(g=g, subject_data=strat_name, subject=subject)
+    except (KeyError, TypeError):
+        pass
 
     return g
 

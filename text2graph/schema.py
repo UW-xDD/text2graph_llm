@@ -1,12 +1,14 @@
 from __future__ import annotations
 import asyncio
 import logging
+from typing import Protocol
 from uuid import UUID, uuid4
 from datetime import datetime
 from pydantic import BaseModel, Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
+from text2graph import macrostrat
 from .geolocation.serpapi import get_gps
 from .macrostrat import get_lith_records, get_strat_records
 
@@ -38,13 +40,35 @@ class Agent(BaseModel):
 
 
 class Provenance(BaseModel):
+    """class for collecting data source information"""
+
     id: UUID = Field(default_factory=uuid4)
-    name: str
     source_name: str
-    source_url: str | None
-    source_version: str | None
-    started_at: datetime
-    ended_at: datetime
+    source_url: str | None = None
+    source_version: str | None = None
+    requested: datetime
+
+
+class Prompt(Protocol):
+    """Prompt interface."""
+
+    provenance: Provenance
+
+    @property
+    def version(self) -> str: ...
+
+    @property
+    def system_prompt(self) -> str: ...
+
+    def get_messages(self, text: str) -> list[dict]: ...
+
+
+class ModelResponse(BaseModel):
+    """Model response object"""
+
+    result: str
+    # prompt: Prompt
+    provenance: Provenance | None = None
 
 
 class Lithology(BaseModel):
@@ -56,7 +80,7 @@ class Lithology(BaseModel):
     color: str | None = None
     fill: int | None = None
     t_units: int | None = None
-    provenance: Provenance
+    provenance: Provenance | None = None
 
     async def hydrate(self) -> None:
         """Hydrate Lithology from macrostrat."""
@@ -74,6 +98,12 @@ class Lithology(BaseModel):
                 )  # Avoid clashing with reserved keyword 'class'
             else:
                 setattr(self, k, v)
+
+        self.provenance = Provenance(
+            source_name="Macrostrat",
+            source_url=f"{macrostrat.BASE_URL}'/defs/lithologies?lith_id={hit['lith_id']}",
+            requested=datetime.now(),
+        )
 
 
 class Stratigraphy(BaseModel):
@@ -101,7 +131,7 @@ class Stratigraphy(BaseModel):
     c_interval: str | None = None
     t_units: int | None = None
     ref_id: int | None = None
-    provenance: Provenance
+    provenance: Provenance | None = None
 
     async def hydrate(self) -> None:
         """Hydrate Stratigraphy from macrostrat."""
@@ -115,6 +145,12 @@ class Stratigraphy(BaseModel):
         # Load data into model
         for k, v in hit.items():
             setattr(self, k, v)
+
+        self.provenance = Provenance(
+            source_name="Macrostrat",
+            source_url=f"{macrostrat.BASE_URL}/defs/strat_names?strat_name_id={hit['strat_name_id']}",
+            requested=datetime.now(),
+        )
 
 
 def valid_longitude(v: float) -> float:
@@ -131,27 +167,13 @@ class Location(BaseModel):
     name: str
     lat: Annotated[float, AfterValidator(valid_latitude)] | None = None
     lon: Annotated[float, AfterValidator(valid_longitude)] | None = None
-    provenance: Provenance
+    provenance: Provenance | None = None
 
     async def hydrate(self) -> None:
-        self.lat, self.lon = await get_gps(self.name)
-
-
-def strip_tuples_return_float(value: str | float | tuple[float] | list[float]) -> float:
-    """
-    take first value of any tuple passed and conver to float. if conversion failure return None
-    :param value: value to 'un-tuple' and convert
-    :return: float or None
-    """
-    try:
-        untupled = value[0]
-    except (TypeError, IndexError):
-        untupled = value
-    try:
-        result = float(untupled)
-    except (ValueError, TypeError):
-        result = None
-    return result
+        self.lat, self.lon, request_url = await get_gps(self.name)
+        self.provenance = Provenance(
+            source_name="SERPAPI", source_url=request_url, requested=datetime.now()
+        )
 
 
 class RelationshipTriplet(BaseModel):
@@ -166,7 +188,7 @@ class RelationshipTriplet(BaseModel):
     subject: str | Location
     predicate: str  # relationship, str for now...
     object: str | Stratigraphy
-    provenance: Provenance
+    provenance: Provenance | None = None
 
     def model_post_init(self, __context) -> None:
         if isinstance(self.subject, str):

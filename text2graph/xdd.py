@@ -1,5 +1,7 @@
 import os
 import logging
+from datetime import datetime
+
 import requests
 from dotenv import load_dotenv
 from pydantic import BaseModel, AnyUrl
@@ -43,6 +45,17 @@ class USGSRetriever:
         response.raise_for_status()
         paragraph = response.json()[0]
         paragraph["url"] = self.get_url(paragraph["paper_id"])
+        source_version = None
+        try:
+            source_version = response.json()[0]["version"]
+        except KeyError:
+            pass
+        paragraph["provenance"] = Provenance(
+            source_name="Ask_xDD_hybrid_API",
+            source_url=ASK_XDD_URL,
+            source_version=source_version,
+            requested=datetime.now(),
+        )
         return Paragraph(**paragraph)
 
     @staticmethod

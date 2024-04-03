@@ -1,20 +1,5 @@
-from typing import Protocol
 from datetime import datetime
-
-
-class Prompt(Protocol):
-    """Prompt interface."""
-
-    @property
-    def version(self) -> str: ...
-
-    @property
-    def created_datetime(self) -> datetime: ...
-
-    @property
-    def system_prompt(self) -> str: ...
-
-    def get_messages(self, text: str) -> list[dict]: ...
+from text2graph.schema import Provenance, Prompt
 
 
 def create_messages(user_prompt: str, system_prompt: str | None) -> list[dict]:
@@ -34,8 +19,12 @@ class V0Prompt:
         return "0.0.1"
 
     @property
-    def created_date(self) -> datetime:
-        return datetime(year=2024, month=2, day=15)
+    def provenance(self) -> Provenance:
+        return Provenance(
+            source_name="text2graph repo",
+            source_version=self.version,
+            requested=datetime.now(),
+        )
 
     @property
     def system_prompt(self) -> str:
@@ -63,16 +52,20 @@ provided context:
 """
 
 
-class V1Prompt:
+class V1Prompt(Prompt):
     """Iain's prompt for geo-entity extraction."""
+
+    def __init__(self):
+        self.provenance = Provenance(
+            source_name="text2graph repo",
+            source_url=None,
+            source_version=self.version,
+            requested=datetime.now(),
+        )
 
     @property
     def version(self) -> str:
         return "1.0.0"
-
-    @property
-    def created_date(self) -> datetime:
-        return datetime(year=2024, month=2, day=15)
 
     @property
     def system_prompt(self) -> str:
@@ -95,8 +88,12 @@ class BillPrompt:
         return "0.1.0"
 
     @property
-    def created_date(self) -> datetime:
-        return datetime(year=2024, month=2, day=15)
+    def provenance(self) -> Provenance:
+        return Provenance(
+            source_name="text2graph repo",
+            source_version=self.version,
+            requested=datetime.now(),
+        )
 
     @property
     def system_prompt(self) -> str:
@@ -139,8 +136,12 @@ class V2Prompt:
         return "0.0.1"
 
     @property
-    def created_date(self) -> datetime:
-        return datetime(year=2024, month=3, day=19)
+    def provenance(self) -> Provenance:
+        return Provenance(
+            source_name="text2graph repo",
+            source_version=self.version,
+            requested=datetime.now(),
+        )
 
     @staticmethod
     def known_geo_entity() -> str:
