@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import os
@@ -48,7 +47,7 @@ def to_model(model: str) -> OpenSourceModel | OpenAIModel | AnthropicModel:
         raise ValueError(f"Model '{model}' is not supported.")
 
 
-def ask_llm(
+async def ask_llm(
     text: str,
     prompt_handler: PromptHandler | str = "v3",
     model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
@@ -83,7 +82,11 @@ def ask_llm(
     if not to_triplets:
         return raw_output
 
-    return post_process(raw_llm_output=raw_output, prompt_handler=prompt_handler)
+    return await post_process(
+        raw_llm_output=raw_output,
+        prompt_handler=prompt_handler,
+        alignment_handler=alignment_handler,
+    )
 
 
 def query_openai(
@@ -176,7 +179,7 @@ def to_triplet(
     )
 
 
-def post_process(
+async def post_process(
     raw_llm_output: str,
     prompt_handler: PromptHandler,
     alignment_handler: AlignmentHandler | None = None,
@@ -211,5 +214,5 @@ def post_process(
                 triplet.object = Stratigraphy(strat_name=closest)
 
     output = GraphOutput(triplets=triplets)
-    asyncio.run(output.hydrate())
+    await output.hydrate()
     return output

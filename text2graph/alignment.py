@@ -35,8 +35,12 @@ class AlignmentHandler:
             return name
         return self.known_entity_names[idx_closest]
 
-    def save(self, path: str | Path) -> None:
+    def save(self, path: str | Path | None = None) -> None:
         """Save handler to disk."""
+
+        if path is None:
+            path = Path(f"data/known_entity_embeddings/{self.model_name}")
+
         if isinstance(path, str):
             path = Path(path)
 
@@ -53,7 +57,8 @@ class AlignmentHandler:
         # Save known entities
         assert self.known_entity_names is not None
         with open(path / "known_entity_names.txt", "w") as f:
-            f.writelines(self.known_entity_names)
+            for name in self.known_entity_names:
+                f.write(name + "\n")
 
         # Save known entity embeddings
         assert self.known_entity_embeddings is not None
@@ -64,6 +69,8 @@ class AlignmentHandler:
 
     @classmethod
     def load(cls, path: str | Path) -> "AlignmentHandler":
+        """Load handler from disk."""
+
         if isinstance(path, str):
             path = Path(path)
 
