@@ -1,9 +1,13 @@
-import sqlite3
-import json
 import datetime
+import functools
+import json
+import sqlite3
+import warnings
 from pathlib import Path
-import pandas as pd
+from typing import Callable
+
 import numpy as np
+import pandas as pd
 
 
 def get_output_info(output: str, route: list[str]) -> str:
@@ -37,3 +41,26 @@ def get_eta(eval_db: Path, test_set: Path, run_name: str, n_workers: int) -> str
     now = datetime.datetime.now()
     expected_finish_time = now + datetime.timedelta(hours=hours_left)
     return f"{now.strftime('%H:%M:%S')}: {completed}/{n} ({completed/n*100:.2f}%) Expected finish: {expected_finish_time.strftime('%Y-%m-%d %H:%M:%S')}"
+
+
+def deprecated(replacement: str | None = None) -> Callable:
+    """Decorator to mark functions as deprecated and suggest a replacement function.
+
+    Args:
+        replacement (str, optional): The name of the function to use instead.
+    """
+
+    def wrapper(func):
+        @functools.wraps(func)
+        def new_func(*args, **kwargs):
+            message = f"Call to deprecated function {func.__name__}."
+            if replacement:
+                message += f" Use {replacement} instead."
+            warnings.simplefilter("always", DeprecationWarning)  # turn off filter
+            warnings.warn(message, category=DeprecationWarning, stacklevel=2)
+            warnings.simplefilter("default", DeprecationWarning)  # reset filter
+            return func(*args, **kwargs)
+
+        return new_func
+
+    return wrapper
