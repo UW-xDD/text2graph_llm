@@ -1,7 +1,7 @@
 from pathlib import Path
 from enum import IntEnum
 from dataclasses import dataclass
-from rdflib import Graph, Literal, RDF, RDFS, Namespace, URIRef, BNode
+from rdflib import Graph, Literal, RDF, RDFS, XSD, Namespace, URIRef, BNode
 
 from text2graph.macrostrat import get_all_intervals
 from text2graph.schema import RelationshipTriplet
@@ -185,6 +185,29 @@ def time_span(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
         g.add((bnode_interval_location, GSOC.hasValue, bnode_range))
         g.add((bnode_range, GSOC.hasEndValue, bnode_range_end))
         g.add((bnode_range, GSOC.hasStartValue, bnode_range_start))
+
+        # provenance
+        macrostrat_api = URIRef(subject_data["provenance"]["source_name"], MSL)
+        g.add((macrostrat_api, RDF.type, PROV.entity))
+
+        fetch_activity = URIRef(
+            subject_data["provenance"]["source_name"]
+            + "_fetch"
+            + subject_data["provenance"]["id"],
+            MSL,
+        )
+        g.add(
+            (
+                fetch_activity,
+                PROV.requestedOn,
+                Literal(
+                    subject_data["provenance"]["requested"].isoformat(),
+                    datatype=XSD.dateTime,
+                ),
+            )
+        )
+        g.add((bnode_range, PROV.wasGeneratedBy, macrostrat_api))
+        g.add((bnode_range, PROV.wasGeneratedBy, macrostrat_api))
     return g
 
 
