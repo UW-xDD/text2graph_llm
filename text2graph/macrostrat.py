@@ -1,19 +1,48 @@
-import requests
-import re
-import httpx
 import logging
+import re
+
+import httpx
+import requests
 
 BASE_URL = "https://macrostrat.org/api"
 
 
-def get_all_strat_names() -> list[str]:
+ROUTES_DOCS = {
+    "/defs/autocomplete": "Quickly retrieve all definitions matching a query. Limited to 100 results.",
+    "/defs/define": "Define multiple terms simultaneously",
+    "/defs/languages": "Returns ISO 639-3 and ISO 639-1 codes for all languages",
+    "/defs/lithologies": "Returns all lithology definitions",
+    "/defs/lithology_attributes": "Returns lithology attribute definitions",
+    "/defs/structures": "Returns all structure definitions",
+    "/defs/columns": "Returns column definitions",
+    "/defs/econs": "Returns econ definitions",
+    "/defs/environments": "Returns environment definitions",
+    "/defs/intervals": "Returns all time interval definitions",
+    "/defs/sources": "Returns sources associated with geologic units. If a geographic format is requested, the bounding box of the source is returned as the geometry.",
+    "/defs/strat_names": "Returns strat names",
+    "/defs/strat_name_concepts": "Returns strat name concepts",
+    "/defs/timescales": "Returns timescales used by Macrostrat",
+    "/defs/minerals": "Returns mineral names and formulas",
+    "/defs/projects": "Returns available Macrostrat projects",
+    "/defs/plates": "Returns definitions of plates from /paleogeography",
+    "/defs/measurements": "Returns all measurements definitions",
+    "/defs/groups": "Returns all column groups",
+    "/defs/grainsizes": "Returns grain size definitions",
+    "/defs/refs": "Returns references",
+    "/defs/drilling_sites": "Returns metadata for offshore drilling sites from ODP, DSDP and IODP",
+}
+
+
+def get_all_strat_names(long: bool = False) -> list[str]:
     """Get all stratigraphic names from macrostrat API."""
 
     url = f"{BASE_URL}/defs/strat_names?all"
     r = requests.get(url)
     r.raise_for_status()
     data = r.json()["success"]["data"]
-    return sorted(list(set([x["strat_name"] for x in data])))
+
+    key = "strat_name_long" if long else "strat_name"
+    return sorted(list(set([x[key] for x in data])))
 
 
 def get_all_intervals() -> list[dict]:
@@ -46,7 +75,7 @@ def get_known_entities() -> dict:
     }
 
 
-async def get_strat_records(strat_name=str, exact: bool = False) -> list[dict]:
+async def get_strat_records(strat_name: str, exact: bool = False) -> list[dict]:
     """Get the records for a given stratigraphic name."""
 
     async with httpx.AsyncClient() as client:
@@ -62,7 +91,7 @@ async def get_strat_records(strat_name=str, exact: bool = False) -> list[dict]:
     return matches
 
 
-async def get_lith_records(lith_name=str, exact: bool = False) -> list[dict]:
+async def get_lith_records(lith_name: str, exact: bool = False) -> list[dict]:
     """Get the records for a given lithology name."""
 
     async with httpx.AsyncClient() as client:
@@ -78,13 +107,14 @@ async def get_lith_records(lith_name=str, exact: bool = False) -> list[dict]:
 
 def _find_word_occurrences(text: str, search_word: str) -> list[dict]:
     """Find all occurrences of a word in a given text and get its position of occurrence."""
+
     matches = [match for match in re.finditer(rf"\b{re.escape(search_word)}\b", text)]
     results = [
         {
             "word": match.group(),
             "start": match.start(),
             "end": match.end(),
-            "link": f"{BASE_URL}/defs/strat_names?strat_name={match.group()}",
+            "link": f"{BASE_URL}/defs/autocomplete?query={match.group()}",
         }
         for match in matches
     ]
@@ -98,4 +128,5 @@ def find_all_occurrences(text: str, words: list[str]) -> list[dict[str, str | in
         this_occ = _find_word_occurrences(text=text, search_word=word)
         if this_occ:
             occurrences.extend(this_occ)
+
     return sorted(occurrences, key=lambda x: x["start"])

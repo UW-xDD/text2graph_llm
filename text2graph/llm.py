@@ -1,23 +1,23 @@
 import json
 import logging
-import asyncio
 import os
-from datetime import datetime
 from enum import Enum
+from functools import partial
 
 import requests
+from anthropic import Anthropic
 from dotenv import load_dotenv
 from openai import OpenAI
-from anthropic import Anthropic
 
-from .prompt import V0Prompt, V1Prompt, V2Prompt
-from .schema import RelationshipTriplet, GraphOutput, Provenance, ModelResponse
+from .alignment import AlignmentHandler
+from .prompt import PromptHandler, to_handler
+from .schema import GraphOutput, RelationshipTriplet, Stratigraphy
 
 load_dotenv()
 
 
 class OpenSourceModel(Enum):
-    """Supported open-source language models."""
+    """Supported open-source language models via Ollama."""
 
     MIXTRAL = "mixtral"
     OPENHERMES = "openhermes"
@@ -32,46 +32,66 @@ class OpenAIModel(Enum):
 class AnthropicModel(Enum):
     CLAUDE3OPUS = "claude-3-opus-20240229"
     CLAUDE3SONNET = "claude-3-sonnet-20240229"
-    CLAUDE3HAIKU = "claude-3-haiku-xxxx"
+    CLAUDE3HAIKU = "claude-3-haiku-20240307"
 
 
-AVAILABLE_PROMPTS = {"v0": V0Prompt, "v1": V1Prompt, "v2": V2Prompt}
+def to_model(model: str) -> OpenSourceModel | OpenAIModel | AnthropicModel:
+    """Convert string to model enum."""
+    if model in [model.value for model in OpenSourceModel]:
+        return OpenSourceModel(model)
+    elif model in [model.value for model in OpenAIModel]:
+        return OpenAIModel(model)
+    elif model in [model.value for model in AnthropicModel]:
+        return AnthropicModel(model)
+    else:
+        raise ValueError(f"Model '{model}' is not supported.")
 
 
-def ask_llm(
-    messages: list[dict],
+async def ask_llm(
+    text: str,
+    prompt_handler: PromptHandler | str = "v3",
     model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
     temperature: float = 0.0,
-) -> str:
+    to_triplets: bool = True,
+    alignment_handler: AlignmentHandler | None = None,
+) -> str | GraphOutput:
     """Ask model with a data package.
 
     Example input: [{"role": "user", "content": "Hello world example in python."}]
     """
 
-    # Validate supported models
+    # Convert model string to enum
     if isinstance(model, str):
-        if model in [model.value for model in OpenSourceModel]:
-            model = OpenSourceModel(model)
-        elif model in [model.value for model in OpenAIModel]:
-            model = OpenAIModel(model)
-        elif model in [model.value for model in AnthropicModel]:
-            model = AnthropicModel(model)
-        else:
-            raise ValueError(f"Model '{model}' is not supported.")
+        model = to_model(model)
+
+    # Convert prompt handler string to object
+    if isinstance(prompt_handler, str):
+        prompt_handler = to_handler(prompt_handler)
+
+    messages = prompt_handler.get_gpt_messages(text)
 
     if isinstance(model, OpenSourceModel):
-        return query_ollama(model, messages, temperature)
+        raw_output = query_ollama(model, messages, temperature)
 
     if isinstance(model, OpenAIModel):
-        return query_openai(model, messages, temperature)
+        raw_output = query_openai(model, messages, temperature)
 
     if isinstance(model, AnthropicModel):
-        return query_anthropic(model, messages, temperature)
+        raw_output = query_anthropic(model, messages, temperature)
+
+    if not to_triplets:
+        return raw_output
+
+    return await post_process(
+        raw_llm_output=raw_output,
+        prompt_handler=prompt_handler,
+        alignment_handler=alignment_handler,
+    )
 
 
 def query_openai(
     model: OpenAIModel, messages: list[dict], temperature: float = 0.0
-) -> ModelResponse:
+) -> str:
     """Query OpenAI API for language model completion."""
     client = OpenAI()
     completion = client.chat.completions.create(
@@ -81,16 +101,7 @@ def query_openai(
         temperature=temperature,
         stream=False,
     )
-    return ModelResponse(
-        result=completion.choices[0].message.content,
-        # prompt=prompt,
-        provenance=Provenance(
-            source_name="OpenAI",
-            source_url=None,
-            source_version=model.value,
-            requested=datetime.now(),
-        ),
-    )
+    return completion.choices[0].message.content
 
 
 def query_ollama(
@@ -157,34 +168,51 @@ def query_anthropic(
     return response.content[0].text
 
 
-# API layer function logic
-def llm_graph(text: str, model: str, prompt_version: str = "latest") -> GraphOutput:
-    """Core function for llm_graph endpoint."""
+def to_triplet(
+    triplet: dict, subject_key: str, object_key: str, predicate_key: str
+) -> RelationshipTriplet:
+    """Inject attributes into RelationshipTriples model. Must be {"subject": "x", "object": "y", "predicate": "z"} tuple."""
+    return RelationshipTriplet(
+        subject=triplet[subject_key],
+        object=triplet[object_key],
+        predicate=triplet[predicate_key],
+    )
 
-    logging.info(f"Querying model '{model}' with prompt version '{prompt_version}'")
 
-    # Create prompt and messages format
-    prompt_creator = AVAILABLE_PROMPTS[prompt_version]()
-    messages = prompt_creator.get_messages(text)
-
-    # Query language model
-    triplets = ask_llm(messages, model)
-
-    # Post-process response (must be JSON)
-    triplets = json.loads(triplets)
+async def post_process(
+    raw_llm_output: str,
+    prompt_handler: PromptHandler,
+    alignment_handler: AlignmentHandler | None = None,
+    threshold: float = 0.95,
+) -> GraphOutput:
+    """Post-process raw output to GraphOutput model."""
+    triplets = json.loads(raw_llm_output)
 
     if "triplets" not in triplets:
         raise ValueError("Response does not contain 'triplets' key.")
-    triplets = [to_triplet(triplet) for triplet in triplets["triplets"]]
-    output = GraphOutput(triplets=triplets)
-    asyncio.run(output.hydrate())
-    return output
 
-
-def to_triplet(triplet: dict) -> RelationshipTriplet:
-    """Inject attributes into RelationshipTriples model. Must be {"subject": "x", "object": "y", "predicate": "z"} tuple."""
-    return RelationshipTriplet(
-        subject=triplet["subject"],
-        object=triplet["object"],
-        predicate=triplet["predicate"],
+    triplet_format_func = partial(
+        to_triplet,
+        subject_key=prompt_handler.subject_key,
+        object_key=prompt_handler.object_key,
+        predicate_key=prompt_handler.predicate_key,
     )
+
+    triplets = [triplet_format_func(triplet) for triplet in triplets["triplets"]]
+
+    if alignment_handler:
+        for triplet in triplets:
+            # Only apply to strat_name because location is not in Macrostrat
+            name = triplet.object.strat_name
+            closest = alignment_handler.get_closest_known_entity(
+                name, threshold=threshold
+            )
+
+            # Update triplet object if closest known entity is different
+            if closest != name:
+                logging.info("Swaping", name, "with", closest)
+                triplet.object = Stratigraphy(strat_name=closest)
+
+    output = GraphOutput(triplets=triplets)
+    await output.hydrate()
+    return output

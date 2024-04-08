@@ -1,15 +1,24 @@
 {
     "cSpell.words": [
+        "grainsizes",
         "Iain",
+        "IODP",
         "jasonlo",
         "Lemmatization",
         "Lemmatizer",
         "macrostrat",
         "megasequence",
         "Modelfile",
+        "ndarray",
         "openhermes",
+        "rdflib",
         "Shakopee",
         "Spacy",
         "strat"
-    ]
+    ],
+    "python.testing.pytestArgs": [
+        "test"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }
