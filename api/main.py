@@ -35,6 +35,7 @@ async def has_valid_api_key(api_key_header: str = Depends(api_key_header)):
 class GraphRequest(BaseModel):
     text: str
     model: str = "mixtral"
+    doc_ids: list[str] | None = None
 
 
 @app.get("/", tags=["Documentation"])

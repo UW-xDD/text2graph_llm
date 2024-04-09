@@ -17,7 +17,7 @@ def generate_known_entity_embeddings() -> None:
     handler.save()
 
 
-async def llm_graph(text: str, model: str):
+async def llm_graph(text: str, model: str, doc_ids: list[str] | None = None):
     """Business logic layer for llm graph extraction."""
 
     return await ask_llm(
@@ -29,4 +29,5 @@ async def llm_graph(text: str, model: str):
         alignment_handler=AlignmentHandler.load(
             "data/known_entity_embeddings/all-MiniLM-L6-v2"
         ),
+        doc_ids=doc_ids,
     )

@@ -1,7 +1,6 @@
 from __future__ import annotations
 import asyncio
 import logging
-from typing import Protocol
 from uuid import UUID, uuid4
 from datetime import datetime
 from pydantic import BaseModel, Field
@@ -46,29 +45,8 @@ class Provenance(BaseModel):
     source_name: str
     source_url: str | None = None
     source_version: str | None = None
-    requested: datetime
-
-
-class Prompt(Protocol):
-    """Prompt interface."""
-
-    provenance: Provenance
-
-    @property
-    def version(self) -> str: ...
-
-    @property
-    def system_prompt(self) -> str: ...
-
-    def get_messages(self, text: str) -> list[dict]: ...
-
-
-class ModelResponse(BaseModel):
-    """Model response object"""
-
-    result: str
-    # prompt: Prompt
-    provenance: Provenance | None = None
+    requested: datetime = datetime.utcnow()
+    additional_values: dict[str, str | float | int | list[str]] | None = None
 
 
 class Lithology(BaseModel):
@@ -102,7 +80,6 @@ class Lithology(BaseModel):
         self.provenance = Provenance(
             source_name="Macrostrat",
             source_url=f"{macrostrat.BASE_URL}'/defs/lithologies?lith_id={hit['lith_id']}",
-            requested=datetime.now(),
         )
 
 
@@ -149,7 +126,6 @@ class Stratigraphy(BaseModel):
         self.provenance = Provenance(
             source_name="Macrostrat",
             source_url=f"{macrostrat.BASE_URL}/defs/strat_names?strat_name_id={hit['strat_name_id']}",
-            requested=datetime.now(),
         )
 
 
@@ -171,9 +147,10 @@ class Location(BaseModel):
 
     async def hydrate(self) -> None:
         self.lat, self.lon, request_url = await get_gps(self.name)
-        self.provenance = Provenance(
-            source_name="SERPAPI", source_url=request_url, requested=datetime.now()
-        )
+        if self.lat and self.lon:
+            self.provenance = Provenance(
+                source_name="SERPAPI", source_url=request_url, requested=datetime.now()
+            )
 
 
 class RelationshipTriplet(BaseModel):
@@ -192,9 +169,11 @@ class RelationshipTriplet(BaseModel):
 
     def model_post_init(self, __context) -> None:
         if isinstance(self.subject, str):
-            self.subject = Location(name=self.subject)
+            self.subject = Location(name=self.subject, provenance=self.provenance)
         if isinstance(self.object, str):
-            self.object = Stratigraphy(strat_name=self.object)
+            self.object = Stratigraphy(
+                strat_name=self.object, provenance=self.provenance
+            )
 
 
 class GraphOutput(BaseModel):
