@@ -1,10 +1,13 @@
+import logging
 from pathlib import Path
 from enum import IntEnum
 from dataclasses import dataclass
+
+from pydantic import ValidationError
 from rdflib import Graph, Literal, RDF, RDFS, XSD, Namespace, URIRef, BNode
 
 from text2graph.macrostrat import get_all_intervals
-from text2graph.schema import RelationshipTriplet
+from text2graph.schema import RelationshipTriplet, Stratigraphy
 
 
 class Rank(IntEnum):
@@ -73,6 +76,46 @@ def create_interval_lookup(intervals: list[dict]) -> dict:
 INTERVAL_LOOKUP = create_interval_lookup(intervals=get_all_intervals())
 
 
+def default_rdf_graph() -> Graph:
+    """
+    Initialize graph with all namespaces bound
+    see reference https://loop3d.org/GKM/geology.html
+    :return: graph
+    """
+    g = Graph()
+    g.bind("rdf", RDF)
+    g.bind("rdfs", RDFS)
+    g.bind("gsoc", GSOC)
+    g.bind("gsog", GSOG)
+    g.bind("gsgu", GSGU)
+    g.bind("gst", GST)
+    g.bind("gspr", GSPR)
+    g.bind("msl", MSL)
+    g.bind("prov", PROV)
+    return g
+
+
+def stratigraphic_type(
+    g: Graph, triplet: RelationshipTriplet, object_node: URIRef
+) -> Graph:
+    g.add((object_node, RDF.type, RANK_LOOKUP[triplet.object.rank]))
+    return g
+
+
+def stratigraphic_label(
+    g: Graph, triplet: RelationshipTriplet, object_node: URIRef
+) -> Graph:
+    try:
+        label = triplet.object.strat_name_long
+        if label and label != "None":
+            g.add((object_node, RDFS.label, Literal(label, lang="en")))
+        else:
+            logging.warning(f"{label} not a valid stratname")
+    except (KeyError, ValueError):
+        g.add((object_node, RDFS.label, Literal(triplet.object.strat_name, lang="en")))
+    return g
+
+
 @dataclass
 class RankRelation:
     """
@@ -88,7 +131,9 @@ class RankRelation:
         self.entity_name = self.name.replace(" ", "")
 
     @classmethod
-    def from_subject_data(cls, subject_data: dict):
+    def from_subject_data(cls, subject_data: dict | Stratigraphy):
+        if isinstance(subject_data, Stratigraphy):
+            subject_data = subject_data.model_dump()
         return cls(
             name=subject_data["strat_name_long"],
             rank=STRAT_RANK_LOOKUP[subject_data["rank"]],
@@ -97,11 +142,12 @@ class RankRelation:
 
 
 def stratigraphic_rank_relations(
-    g: Graph, subject_data: dict, subject_node: URIRef
+    g: Graph, triplet: RelationshipTriplet, object_node: URIRef
 ) -> Graph:
     """
     Add stratigraphic rank relationships in subject_data to graph
     """
+    subject_data = triplet.object.model_dump()
     subject_rank_relation = RankRelation.from_subject_data(subject_data)
     for rank in STRAT_RANK_LOOKUP.keys():
         rank_relation_name = subject_data[rank.lower()]
@@ -114,24 +160,27 @@ def stratigraphic_rank_relations(
                 # print(f"{relator_rank_relation.name} is part of {subject_rank_relation.name}")
                 rank_relation_node = URIRef(relator_rank_relation.entity_name, MSL)
                 g.add((rank_relation_node, RDF.type, relator_rank_relation.rdftype))
-                g.add((rank_relation_node, GSOC.isPartOf, subject_node))
+                g.add((rank_relation_node, GSOC.isPartOf, object_node))
 
             if relator_rank_relation.rank > subject_rank_relation.rank:
                 # print(f"{subject_rank_relation.name} is part of {relator_rank_relation.name} ")
                 rank_relation_node = URIRef(relator_rank_relation.entity_name, MSL)
                 g.add((rank_relation_node, RDF.type, relator_rank_relation.rdftype))
-                g.add((subject_node, GSOC.isPartOf, rank_relation_node))
+                g.add((object_node, GSOC.isPartOf, rank_relation_node))
     return g
 
 
-def deposition_age(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
+def deposition_age(
+    g: Graph, triplet: RelationshipTriplet, object_node: URIRef
+) -> Graph:
     """
     Add subject deposition age to subject in graph
     """
+    subject_data = triplet.object.model_dump()
     period_keys = ["t_period", "b_period"]
     unique_periods = set([subject_data[k] for k in period_keys])
     for period in unique_periods:
-        if period and subject_data[period] and subject_data[period] != "None":
+        if period and period != "None":
             bnode_deposition = BNode()
             g.add((bnode_deposition, RDF.type, GSPR.Deposition))
             g.add(
@@ -144,20 +193,20 @@ def deposition_age(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
             g.add(
                 (bnode_deposition, GSOC.occupiesTimeDirectly, INTERVAL_LOOKUP[period])
             )
-            g.add((subject, GSOC.isParticipantIn, bnode_deposition))
+            g.add((object_node, GSOC.isParticipantIn, bnode_deposition))
 
     return g
 
 
-def time_span(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
+def time_span(g: Graph, triplet: RelationshipTriplet, object_node: URIRef) -> Graph:
     """
     add age range to subject in graph
     """
     if (
-        subject_data["t_age"]
-        and subject_data["b_age"]
-        and subject_data["t_age"] != "None"
-        and subject_data["b_age"] != "None"
+        triplet.object.t_age
+        and triplet.object.b_age
+        and triplet.object.t_age != "None"
+        and triplet.object.b_age != "None"
     ):
         bnode_interval = BNode()
         g.add((bnode_interval, RDF.type, GSOG.Geologic_Time_Interval))
@@ -168,7 +217,7 @@ def time_span(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
         bnode_range_end = BNode()
         g.add((bnode_range_end, RDF.type, GSOC.Time_Numeric_Value))
         g.add(
-            (bnode_range_end, GSOC.hasDataValue, Literal(float(subject_data["t_age"])))
+            (bnode_range_end, GSOC.hasDataValue, Literal(float(triplet.object.t_age)))
         )
         bnode_range_start = BNode()
         g.add((bnode_range_start, RDF.type, GSOC.Time_Numeric_Value))
@@ -176,24 +225,24 @@ def time_span(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
             (
                 bnode_range_start,
                 GSOC.hasDataValue,
-                Literal(float(subject_data["b_age"])),
+                Literal(float(triplet.object.b_age)),
             )
         )
 
-        g.add((subject, GSOC.occupiesTimeDirectly, bnode_interval))
+        g.add((object_node, GSOC.occupiesTimeDirectly, bnode_interval))
         g.add((bnode_interval, GSOC.hasQuality, bnode_interval_location))
         g.add((bnode_interval_location, GSOC.hasValue, bnode_range))
         g.add((bnode_range, GSOC.hasEndValue, bnode_range_end))
         g.add((bnode_range, GSOC.hasStartValue, bnode_range_start))
 
         # provenance
-        macrostrat_api = URIRef(subject_data["provenance"]["source_name"], MSL)
+        macrostrat_api = URIRef(triplet.object.provenance.source_name, MSL)
         g.add((macrostrat_api, RDF.type, PROV.entity))
 
         fetch_activity = URIRef(
-            subject_data["provenance"]["source_name"]
+            triplet.object.provenance.source_name
             + "_fetch"
-            + subject_data["provenance"]["id"],
+            + str(triplet.object.provenance.id),
             MSL,
         )
         g.add(
@@ -201,7 +250,7 @@ def time_span(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
                 fetch_activity,
                 PROV.requestedOn,
                 Literal(
-                    subject_data["provenance"]["requested"].isoformat(),
+                    triplet.object.provenance.requested.isoformat(),
                     datatype=XSD.dateTime,
                 ),
             )
@@ -212,24 +261,24 @@ def time_span(g: Graph, subject_data: dict, subject: URIRef) -> Graph:
 
 
 def spatial_location(
-    g: Graph, subject_data: dict, object_data: dict, subject: URIRef
+    g: Graph, triplet: RelationshipTriplet, object_node: URIRef
 ) -> Graph:
     """
-    Add spatial location to subject in graph
+    Add spatial location to subject_node in graph
     """
     WGS84 = URIRef("https://epsg.io/4326")
     bnode_sl = BNode()
     (g.add((bnode_sl, RDF.type, GSOC.SpatialLocation)),)
-    g.add((subject, GSOC.hasQuality, bnode_sl))
+    g.add((object_node, GSOC.hasQuality, bnode_sl))
     bnode_slv = BNode()
     g.add((bnode_slv, RDF.type, GSOC.SpatialValue))
-    g.add((bnode_slv, GSOC.hasDataValue, Literal(object_data["name"], lang="en")))
+    g.add((bnode_slv, GSOC.hasDataValue, Literal(triplet.subject.name, lang="en")))
     g.add((bnode_sl, GSOC.hasValue, bnode_slv))
     if (
-        object_data["lon"]
-        and object_data["lat"]
-        and object_data["lon"] != "None"
-        and object_data["lat"] != "None"
+        triplet.subject.lon
+        and triplet.subject.lat
+        and triplet.subject.lon != "None"
+        and triplet.subject.lat != "None"
     ):
         bnode_slwkt = BNode()
         g.add((bnode_slwkt, RDF.type, GSOC.WKT_Value))
@@ -237,7 +286,7 @@ def spatial_location(
             (
                 bnode_slwkt,
                 GSOC.hasDataValue,
-                Literal(f"( POINT {object_data['lon']} {object_data['lat']} )"),
+                Literal(f"( POINT {triplet.subject.lon} {triplet.subject.lat} )"),
             )
         )
         g.add((bnode_slwkt, GSOC.hasReferenceSystem, WGS84))
@@ -246,93 +295,48 @@ def spatial_location(
     return g
 
 
-def default_rdf_graph() -> Graph:
-    """
-    Initialize graph with all namespaces bound
-    :return: graph
-    """
-    # https://loop3d.org/GKM/geology.html
-    g = Graph()
-    g.bind("rdf", RDF)
-    g.bind("rdfs", RDFS)
-    g.bind("gsoc", GSOC)
-    g.bind("gsog", GSOG)
-    g.bind("gsgu", GSGU)
-    g.bind("gst", GST)
-    g.bind("gspr", GSPR)
-    g.bind("msl", MSL)
-    g.bind("prov", PROV)
-
-    return g
-
-
-def define_subject_name(strat_name: dict) -> URIRef:
+def define_object_node(object_stratigraphy: Stratigraphy) -> URIRef:
     """
     create strat_name node/URIRef for subject/strat_name dict
-    :param strat_name: subject/strat_name dict
+    :param object_stratigraphy: subject/strat_name dict
     :return: URIRef
     """
     try:
-        subject_name = strat_name["strat_name_long"].replace(" ", "")
+        subject_name = object_stratigraphy.strat_name_long.replace(" ", "")
     except (KeyError, AttributeError):
-        subject_name = strat_name["strat_name"].replace(" ", "")
+        subject_name = object_stratigraphy.strat_name.replace(" ", "")
     subject = URIRef(subject_name, MSL)
     return subject
 
 
-def triplet_to_rdf(triplet: dict | RelationshipTriplet) -> Graph:
+def triplet_to_rdf(triplet: dict | RelationshipTriplet) -> Graph | None:
     """
     Convert RelationshipTriples object to an RDF graph
     :param triplet: RelationshipTriples object to convert
-    :return: RDF graph of RealtionshipTriples object
+    :return: RDF graph of RelationshipTriples object
     """
-    if isinstance(triplet, RelationshipTriplet):
-        triplet = triplet.model_dump()
-
-    loc = triplet["subject"]
-    strat_name = triplet["object"]
+    if isinstance(triplet, dict):
+        try:
+            triplet = RelationshipTriplet(**triplet)
+        except ValidationError:
+            logging.warning(f"failed to validate RelationshipTriplet from: {triplet}")
+            return
 
     g = default_rdf_graph()
-    subject = define_subject_name(strat_name=strat_name)
-
-    try:
-        g.add((subject, RDF.type, RANK_LOOKUP[strat_name["rank"]]))
-    except KeyError:
-        pass
-
-    try:
-        label = strat_name["strat_name_long"]
-        if label and label != "None":
-            g.add((subject, RDFS.label, Literal(label, lang="en")))
-        else:
-            raise ValueError(f"{label} not a valid stratname")
-    except (KeyError, ValueError):
-        g.add((subject, RDFS.label, Literal(strat_name["strat_name"], lang="en")))
-
-    try:
-        g = spatial_location(
-            g=g, subject_data=strat_name, object_data=loc, subject=subject
-        )
-    except KeyError:
-        pass
-
-    try:
-        g = stratigraphic_rank_relations(
-            g=g, subject_data=strat_name, subject_node=subject
-        )
-    except KeyError:
-        pass
-
-    try:
-        g = deposition_age(g=g, subject_data=strat_name, subject=subject)
-    except KeyError:
-        pass
-
-    try:
-        g = time_span(g=g, subject_data=strat_name, subject=subject)
-    except (KeyError, TypeError):
-        pass
-
+    object_node = define_object_node(object_stratigraphy=triplet.object)
+    graph_features = [
+        stratigraphic_type,
+        stratigraphic_label,
+        spatial_location,
+        stratigraphic_rank_relations,
+        deposition_age,
+        time_span,
+    ]
+    for feat in graph_features:
+        # try:
+        g = feat(g=g, triplet=triplet, object_node=object_node)
+        # except Exception as e:
+        #     logging.warning(f"failed to add {feat.__name__} to graph with error:{e}"
     return g
 
 
