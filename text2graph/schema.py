@@ -12,32 +12,6 @@ from .geolocation.serpapi import get_gps
 from .macrostrat import get_lith_records, get_strat_records
 
 
-class Entity(BaseModel):
-    """a thing in PROV, e.g. webpage, chart, spellchecker..."""
-
-    id: UUID = Field(default_factory=uuid4)
-    name: str
-    was_derived_from: Entity
-    was_generated_by: Activity
-    was_attributed_to: Agent
-
-
-class Activity(BaseModel):
-    """how a PROV entity comes into existence"""
-
-    id: UUID = Field(default_factory=uuid4)
-    name: str
-    used: Entity
-    was_associated_with: Agent
-
-
-class Agent(BaseModel):
-    """person, piece of software, an inanimate object, an organization, anything assigned responsibility in PROV"""
-
-    id: UUID = Field(default_factory=uuid4)
-    name: str
-
-
 class Provenance(BaseModel):
     """class for collecting data source information"""
 

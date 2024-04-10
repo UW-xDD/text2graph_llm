@@ -1,13 +1,24 @@
-import logging
-from pathlib import Path
 from enum import IntEnum
 from dataclasses import dataclass
-
-from pydantic import ValidationError
 from rdflib import Graph, Literal, RDF, RDFS, XSD, Namespace, URIRef, BNode
+import logging
 
 from text2graph.macrostrat import get_all_intervals
-from text2graph.schema import RelationshipTriplet, Stratigraphy
+from text2graph.schema import Stratigraphy, RelationshipTriplet
+
+
+def define_object_node(triplet_object: Stratigraphy) -> URIRef:
+    """
+    create strat_name node/URIRef for subject/strat_name dict
+    :param triplet_object: subject/strat_name dict
+    :return: URIRef
+    """
+    try:
+        object_name = triplet_object.strat_name_long.replace(" ", "")
+    except (KeyError, AttributeError):
+        object_name = triplet_object.strat_name.replace(" ", "")
+    object_node = URIRef(object_name, MSL)
+    return object_node
 
 
 class Rank(IntEnum):
@@ -40,7 +51,9 @@ GSGU = Namespace("https://w3id.org/gso/geologicunit/")
 GSPR = Namespace("https://w3id.org/gso/geologicprocess/")
 GST = Namespace("https://w3id.org/gso/geologictime/")
 PROV = Namespace("http://www.w3.org/ns/prov#")
+PAV = Namespace("http://purl.org/pav/")
 MSL = Namespace("https://macrostrat.org/lexicon/")
+XDD = Namespace("https://xdd.wisc.edu/lexicon/")
 
 
 RANK_LOOKUP = {
@@ -50,8 +63,6 @@ RANK_LOOKUP = {
     "Gp": GSGU.Group,
     "SGp": GSGU.Supergroup,
 }
-
-BASE_URL = "https://macrostrat.org/api"
 
 
 def create_interval_lookup(intervals: list[dict]) -> dict:
@@ -91,13 +102,94 @@ def default_rdf_graph() -> Graph:
     g.bind("gst", GST)
     g.bind("gspr", GSPR)
     g.bind("msl", MSL)
+    g.bind("xdd", XDD)
     g.bind("prov", PROV)
+    g.bind("pav", PAV)
+    return g
+
+
+def add_macrostrat_query_and_entity(
+    g: Graph, triplet: RelationshipTriplet, attributed_node: URIRef | BNode
+) -> Graph:
+    """add macrostrat provenance to attributed node in Graph"""
+    macrostrat_entity_node = URIRef(triplet.object.provenance.source_name, MSL)
+    g.add((macrostrat_entity_node, RDF.type, PROV.entity))
+    g.add(
+        (
+            macrostrat_entity_node,
+            PAV.version,
+            Literal(triplet.object.provenance.source_version, datatype=XSD.string),
+        )
+    )
+
+    macrostrat_query_node = URIRef(triplet.object.provenance.source_name + "Query", MSL)
+    g.add((macrostrat_query_node, RDF.type, PROV.activity))
+    g.add((macrostrat_query_node, PROV.used, macrostrat_entity_node))
+    g.add(
+        (
+            macrostrat_query_node,
+            PROV.atLocation,
+            Literal(triplet.object.provenance.source_url, datatype=XSD.anyURI),
+        )
+    )
+    g.add(
+        (
+            macrostrat_query_node,
+            PROV.requestedAt,
+            Literal(
+                triplet.object.provenance.requested.isoformat(), datatype=XSD.dateTime
+            ),
+        )
+    )
+
+    g.add((attributed_node, PROV.wasGeneratedBy, macrostrat_query_node))
+    return g
+
+
+def add_serpapi_query_and_entity(
+    g: Graph, triplet: RelationshipTriplet, attributed_node: URIRef | BNode
+) -> Graph:
+    """add serpapi provenance to attributed node in Graph"""
+    serpapi_entity_node = URIRef(triplet.subject.provenance.source_name, XDD)
+    g.add((serpapi_entity_node, RDF.type, PROV.entity))
+    g.add(
+        (
+            serpapi_entity_node,
+            PAV.version,
+            Literal(triplet.subject.provenance.source_version, datatype=XSD.string),
+        )
+    )
+
+    serapi_query_node = URIRef(triplet.subject.provenance.source_name + "Query", XDD)
+    g.add((serapi_query_node, RDF.type, PROV.activity))
+    g.add((serapi_query_node, PROV.used, serpapi_entity_node))
+    g.add(
+        (
+            serapi_query_node,
+            PROV.atLocation,
+            Literal(triplet.subject.provenance.source_url, datatype=XSD.anyURI),
+        )
+    )
+    g.add(
+        (
+            serapi_query_node,
+            PROV.requestedAt,
+            Literal(
+                triplet.subject.provenance.requested.isoformat(), datatype=XSD.dateTime
+            ),
+        )
+    )
+
+    g.add((attributed_node, PROV.wasGeneratedBy, serapi_query_node))
     return g
 
 
 def stratigraphic_type(
     g: Graph, triplet: RelationshipTriplet, object_node: URIRef
 ) -> Graph:
+    """
+    add object node to the graph with type as macrostrat stratigraphic rank
+    """
     g.add((object_node, RDF.type, RANK_LOOKUP[triplet.object.rank]))
     return g
 
@@ -105,6 +197,9 @@ def stratigraphic_type(
 def stratigraphic_label(
     g: Graph, triplet: RelationshipTriplet, object_node: URIRef
 ) -> Graph:
+    """
+    add strat_name_long as label to subject node if strat_name_long is present, else use strat_name
+    """
     try:
         label = triplet.object.strat_name_long
         if label and label != "None":
@@ -113,6 +208,73 @@ def stratigraphic_label(
             logging.warning(f"{label} not a valid stratname")
     except (KeyError, ValueError):
         g.add((object_node, RDFS.label, Literal(triplet.object.strat_name, lang="en")))
+    return g
+
+
+def triplet_provenance(
+    g: Graph, triplet: RelationshipTriplet, object_node: URIRef
+) -> Graph:
+    """
+    add triplet and object provenance to the object node
+    """
+    xdd_text_processor_node = URIRef("XDDTextProcessorAPI", XDD)
+    g.add((xdd_text_processor_node, RDF.type, PROV.entity))
+    g.add(
+        (
+            xdd_text_processor_node,
+            RDFS.label,
+            Literal("xDD text processor API", lang="en"),
+        )
+    )
+    g.add((xdd_text_processor_node, PAV.version, Literal("v1", datatype=XSD.string)))
+
+    doc_ids_corpus_node = URIRef("XDDCorpus", XDD)
+    g.add((doc_ids_corpus_node, RDF.type, PROV.entity))
+    g.add((doc_ids_corpus_node, RDFS.label, Literal("xDD document ids", lang="en")))
+    g.add(
+        (
+            doc_ids_corpus_node,
+            XDD.docIDList,
+            Literal(triplet.provenance.additional_values["doc_ids"]),
+        )
+    )
+    g.add((doc_ids_corpus_node, PROV.used, xdd_text_processor_node))
+
+    rag_hybrid_retriever_node = URIRef("USGSRagHybridRetriever", XDD)
+    g.add((rag_hybrid_retriever_node, RDF.type, PROV.entity))
+    g.add(
+        (
+            doc_ids_corpus_node,
+            RDFS.label,
+            Literal("RAG hybrid retriever API", lang="en"),
+        )
+    )
+    g.add((rag_hybrid_retriever_node, PAV.version, Literal("v1", datatype=XSD.string)))
+    g.add((rag_hybrid_retriever_node, PROV.used, doc_ids_corpus_node))
+
+    llm_entity_node = URIRef(triplet.provenance.source_name, XDD)
+    g.add((llm_entity_node, RDF.type, PROV.entity))
+    g.add(
+        (
+            llm_entity_node,
+            PAV.version,
+            Literal(triplet.provenance.source_version, datatype=XSD.string),
+        )
+    )
+
+    llm_query_node = URIRef(triplet.provenance.source_name + "_query", XDD)
+    g.add((llm_query_node, RDF.type, PROV.activity))
+    g.add(
+        (
+            llm_query_node,
+            PROV.startedAtTime,
+            Literal(triplet.provenance.requested.isoformat(), datatype=XSD.dateTime),
+        )
+    )
+    g.add((llm_query_node, PROV.used, llm_entity_node))
+    g.add((llm_query_node, PROV.used, rag_hybrid_retriever_node))
+
+    g.add((object_node, PROV.wasGeneratedBy, llm_query_node))
     return g
 
 
@@ -145,7 +307,7 @@ def stratigraphic_rank_relations(
     g: Graph, triplet: RelationshipTriplet, object_node: URIRef
 ) -> Graph:
     """
-    Add stratigraphic rank relationships in subject_data to graph
+    Add stratigraphic rank relationships in subject_data to graph by using macrostrat Stratigraphy Member, Formation, Group and Supergroup values
     """
     subject_data = triplet.object.model_dump()
     subject_rank_relation = RankRelation.from_subject_data(subject_data)
@@ -161,12 +323,19 @@ def stratigraphic_rank_relations(
                 rank_relation_node = URIRef(relator_rank_relation.entity_name, MSL)
                 g.add((rank_relation_node, RDF.type, relator_rank_relation.rdftype))
                 g.add((rank_relation_node, GSOC.isPartOf, object_node))
+                g = add_macrostrat_query_and_entity(
+                    g=g, triplet=triplet, attributed_node=rank_relation_node
+                )
 
             if relator_rank_relation.rank > subject_rank_relation.rank:
                 # print(f"{subject_rank_relation.name} is part of {relator_rank_relation.name} ")
                 rank_relation_node = URIRef(relator_rank_relation.entity_name, MSL)
                 g.add((rank_relation_node, RDF.type, relator_rank_relation.rdftype))
                 g.add((object_node, GSOC.isPartOf, rank_relation_node))
+                g = add_macrostrat_query_and_entity(
+                    g=g, triplet=triplet, attributed_node=rank_relation_node
+                )
+
     return g
 
 
@@ -179,6 +348,7 @@ def deposition_age(
     subject_data = triplet.object.model_dump()
     period_keys = ["t_period", "b_period"]
     unique_periods = set([subject_data[k] for k in period_keys])
+
     for period in unique_periods:
         if period and period != "None":
             bnode_deposition = BNode()
@@ -194,6 +364,9 @@ def deposition_age(
                 (bnode_deposition, GSOC.occupiesTimeDirectly, INTERVAL_LOOKUP[period])
             )
             g.add((object_node, GSOC.isParticipantIn, bnode_deposition))
+            g = add_macrostrat_query_and_entity(
+                g=g, triplet=triplet, attributed_node=bnode_deposition
+            )
 
     return g
 
@@ -234,29 +407,10 @@ def time_span(g: Graph, triplet: RelationshipTriplet, object_node: URIRef) -> Gr
         g.add((bnode_interval_location, GSOC.hasValue, bnode_range))
         g.add((bnode_range, GSOC.hasEndValue, bnode_range_end))
         g.add((bnode_range, GSOC.hasStartValue, bnode_range_start))
-
-        # provenance
-        macrostrat_api = URIRef(triplet.object.provenance.source_name, MSL)
-        g.add((macrostrat_api, RDF.type, PROV.entity))
-
-        fetch_activity = URIRef(
-            triplet.object.provenance.source_name
-            + "_fetch"
-            + str(triplet.object.provenance.id),
-            MSL,
+        g = add_macrostrat_query_and_entity(
+            g=g, triplet=triplet, attributed_node=bnode_interval
         )
-        g.add(
-            (
-                fetch_activity,
-                PROV.requestedOn,
-                Literal(
-                    triplet.object.provenance.requested.isoformat(),
-                    datatype=XSD.dateTime,
-                ),
-            )
-        )
-        g.add((bnode_range, PROV.wasGeneratedBy, macrostrat_api))
-        g.add((bnode_range, PROV.wasGeneratedBy, macrostrat_api))
+
     return g
 
 
@@ -267,88 +421,38 @@ def spatial_location(
     Add spatial location to subject_node in graph
     """
     WGS84 = URIRef("https://epsg.io/4326")
-    bnode_sl = BNode()
-    (g.add((bnode_sl, RDF.type, GSOC.SpatialLocation)),)
-    g.add((object_node, GSOC.hasQuality, bnode_sl))
-    bnode_slv = BNode()
-    g.add((bnode_slv, RDF.type, GSOC.SpatialValue))
-    g.add((bnode_slv, GSOC.hasDataValue, Literal(triplet.subject.name, lang="en")))
-    g.add((bnode_sl, GSOC.hasValue, bnode_slv))
+    bnode_spatial_location = BNode()
+    (g.add((bnode_spatial_location, RDF.type, GSOC.SpatialLocation)),)
+    g.add((object_node, GSOC.hasQuality, bnode_spatial_location))
+    bnode_spatial_location_value = BNode()
+    g.add((bnode_spatial_location_value, RDF.type, GSOC.SpatialValue))
+    g.add(
+        (
+            bnode_spatial_location_value,
+            GSOC.hasDataValue,
+            Literal(triplet.subject.name, lang="en"),
+        )
+    )
+    g.add((bnode_spatial_location, GSOC.hasValue, bnode_spatial_location_value))
     if (
         triplet.subject.lon
         and triplet.subject.lat
         and triplet.subject.lon != "None"
         and triplet.subject.lat != "None"
     ):
-        bnode_slwkt = BNode()
-        g.add((bnode_slwkt, RDF.type, GSOC.WKT_Value))
+        bnode_spatial_location_wkt_value = BNode()
+        g.add((bnode_spatial_location_wkt_value, RDF.type, GSOC.WKT_Value))
         g.add(
             (
-                bnode_slwkt,
+                bnode_spatial_location_wkt_value,
                 GSOC.hasDataValue,
                 Literal(f"( POINT {triplet.subject.lon} {triplet.subject.lat} )"),
             )
         )
-        g.add((bnode_slwkt, GSOC.hasReferenceSystem, WGS84))
-        g.add((bnode_sl, GSOC.hasValue, bnode_slwkt))
+        g.add((bnode_spatial_location_wkt_value, GSOC.hasReferenceSystem, WGS84))
+        g.add((bnode_spatial_location, GSOC.hasValue, bnode_spatial_location_wkt_value))
         g.add((WGS84, RDF.type, GSOC.Geographic_Coordinate_System))
+        g = add_serpapi_query_and_entity(
+            g=g, triplet=triplet, attributed_node=bnode_spatial_location_wkt_value
+        )
     return g
-
-
-def define_object_node(object_stratigraphy: Stratigraphy) -> URIRef:
-    """
-    create strat_name node/URIRef for subject/strat_name dict
-    :param object_stratigraphy: subject/strat_name dict
-    :return: URIRef
-    """
-    try:
-        subject_name = object_stratigraphy.strat_name_long.replace(" ", "")
-    except (KeyError, AttributeError):
-        subject_name = object_stratigraphy.strat_name.replace(" ", "")
-    subject = URIRef(subject_name, MSL)
-    return subject
-
-
-def triplet_to_rdf(triplet: dict | RelationshipTriplet) -> Graph | None:
-    """
-    Convert RelationshipTriples object to an RDF graph
-    :param triplet: RelationshipTriples object to convert
-    :return: RDF graph of RelationshipTriples object
-    """
-    if isinstance(triplet, dict):
-        try:
-            triplet = RelationshipTriplet(**triplet)
-        except ValidationError:
-            logging.warning(f"failed to validate RelationshipTriplet from: {triplet}")
-            return
-
-    g = default_rdf_graph()
-    object_node = define_object_node(object_stratigraphy=triplet.object)
-    graph_features = [
-        stratigraphic_type,
-        stratigraphic_label,
-        spatial_location,
-        stratigraphic_rank_relations,
-        deposition_age,
-        time_span,
-    ]
-    for feat in graph_features:
-        # try:
-        g = feat(g=g, triplet=triplet, object_node=object_node)
-        # except Exception as e:
-        #     logging.warning(f"failed to add {feat.__name__} to graph with error:{e}"
-    return g
-
-
-def graph_to_ttl_string(g: Graph, filename: Path | None = None) -> str:
-    """
-    serialize graph to RDF Turtle (ttl) string
-    :param g: graph to serialize
-    :param filename: Path or None, if Path write TTL to disk at given filename
-    :return str: serialized graph
-    """
-    output = g.serialize(format="turtle")
-    if filename:
-        with open(filename, "w") as f:
-            f.write(output)
-    return output
