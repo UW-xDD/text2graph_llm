@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
 
+import text2graph.llm as llm
 from text2graph.alignment import AlignmentHandler
-from text2graph.llm import ask_llm
 from text2graph.macrostrat import get_all_strat_names
 from text2graph.prompt import PromptHandlerV3
 
@@ -23,7 +23,7 @@ async def llm_graph(
 ):
     """Business logic layer for llm graph extraction."""
 
-    return await ask_llm(
+    return await llm.ask_llm(
         text=text,
         prompt_handler=PromptHandlerV3(),
         model=model,
@@ -32,4 +32,12 @@ async def llm_graph(
         alignment_handler=AlignmentHandler.load(
             "data/known_entity_embeddings/all-MiniLM-L6-v2"
         ),
+    )
+
+
+async def llm_graph_from_search(query: str, top_k: int, model: str, ttl: bool = True):
+    """Business logic layer for llm graph extraction from search."""
+
+    return await llm.llm_graph_from_search(
+        query=query, top_k=top_k, model=model, ttl=ttl
     )

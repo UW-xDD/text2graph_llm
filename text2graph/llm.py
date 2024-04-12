@@ -9,9 +9,11 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from .alignment import AlignmentHandler
-from .prompt import PromptHandler, to_handler
-from .schema import GraphOutput, RelationshipTriplet, Stratigraphy, Provenance
+from text2graph.alignment import AlignmentHandler
+from text2graph.askxdd import Retriever
+from text2graph.gkm import to_ttl
+from text2graph.prompt import PromptHandler, PromptHandlerV3, to_handler
+from text2graph.schema import GraphOutput, Provenance, RelationshipTriplet, Stratigraphy
 
 load_dotenv()
 
@@ -102,6 +104,13 @@ async def ask_llm(
         alignment_handler=alignment_handler,
         provenance=ask_llm_provenance,
     )
+
+
+def merge_graphs(graphs: list[GraphOutput]) -> GraphOutput:
+    """Merge graphs."""
+
+    all_triplets = [triplet for graph in graphs for triplet in graph.triplets]
+    return GraphOutput(triplets=all_triplets)
 
 
 def query_openai(
@@ -230,9 +239,9 @@ async def post_process(
                 name, threshold=threshold
             )
 
-            # Update triplet object if closest known entity is different
+            # Update triplet object if closest known entity is different from original
             if closest != name:
-                logging.info("Swaping", name, "with", closest)
+                logging.info("Swapping", name, "with", closest)
                 triplet.object = Stratigraphy(strat_name=closest)
                 triplet.object.provenance.additional_values[
                     "alignment_old_strat_name"
@@ -244,3 +253,73 @@ async def post_process(
     output = GraphOutput(triplets=triplets)
     await output.hydrate()
     return output
+
+
+async def ask_llm(
+    text: str,
+    prompt_handler: PromptHandler | str = "v3",
+    model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
+    temperature: float = 0.0,
+    to_triplets: bool = True,
+    alignment_handler: AlignmentHandler | None = None,
+) -> str | GraphOutput:
+    """Ask model with a data package.
+
+    Example input: [{"role": "user", "content": "Hello world example in python."}]
+    """
+
+    # Convert model string to enum
+    if isinstance(model, str):
+        model = to_model(model)
+
+    # Convert prompt handler string to object
+    if isinstance(prompt_handler, str):
+        prompt_handler = to_handler(prompt_handler)
+
+    messages = prompt_handler.get_gpt_messages(text)
+
+    if isinstance(model, OpenSourceModel):
+        raw_output = query_ollama(model, messages, temperature)
+
+    if isinstance(model, OpenAIModel):
+        raw_output = query_openai(model, messages, temperature)
+
+    if isinstance(model, AnthropicModel):
+        raw_output = query_anthropic(model, messages, temperature)
+
+    if not to_triplets:
+        return raw_output
+
+    return await post_process(
+        raw_llm_output=raw_output,
+        prompt_handler=prompt_handler,
+        alignment_handler=alignment_handler,
+    )
+
+
+async def llm_graph_from_search(query: str, top_k: int, model: str, ttl: bool = True):
+    """Business logic layer for llm graph extraction from search."""
+
+    r = Retriever()
+    paragraphs = r.query(query, top_k=top_k)
+    for paragraph in paragraphs:
+        paragraph["graph"] = await ask_llm(
+            text=paragraph["text_content"],
+            prompt_handler=PromptHandlerV3(),
+            model=model,
+            temperature=0.0,
+            to_triplets=True,
+            alignment_handler=AlignmentHandler.load(
+                "data/known_entity_embeddings/all-MiniLM-L6-v2"
+            ),
+        )
+
+    logging.info(paragraphs)
+
+    # TODO: Perhaps here is a good place to add provenance information
+
+    graph = merge_graphs([paragraph["graph"] for paragraph in paragraphs])
+
+    if ttl:
+        return to_ttl(graph)
+    return graph
