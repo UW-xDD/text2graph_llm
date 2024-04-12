@@ -17,6 +17,11 @@
             "label": "serve-api",
             "type": "shell",
             "command": "uvicorn --app-dir api main:app --reload"
+        },
+        {
+            "label": "serve-demo",
+            "type": "shell",
+            "command": "streamlit run ./demo/main.py"
         }
     ]
 }
