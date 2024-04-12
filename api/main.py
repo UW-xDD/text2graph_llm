@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from text2graph.schema import Provenance
 
+
 logging.basicConfig(level=logging.INFO)
 
 

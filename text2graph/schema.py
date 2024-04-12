@@ -179,6 +179,6 @@ class GraphOutput(BaseModel):
     async def hydrate(self) -> None:
         """Hydrate all objects in the graph."""
         await asyncio.gather(
-            *[triplet.subject.hydrate() for triplet in self.triplets],
+            # *[triplet.subject.hydrate() for triplet in self.triplets],  # TODO: Find alternative to hydrate Location
             *[triplet.object.hydrate() for triplet in self.triplets],
         )
