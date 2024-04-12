@@ -5,6 +5,7 @@ from text2graph.alignment import AlignmentHandler
 from text2graph.llm import ask_llm
 from text2graph.macrostrat import get_all_strat_names
 from text2graph.prompt import PromptHandlerV3
+from text2graph.schema import Provenance
 
 
 def generate_known_entity_embeddings() -> None:
@@ -17,7 +18,12 @@ def generate_known_entity_embeddings() -> None:
     handler.save()
 
 
-async def llm_graph(text: str, model: str, doc_ids: list[str] | None = None):
+async def llm_graph(
+    text: str,
+    model: str,
+    doc_ids: list[str] | None = None,
+    provenance: Provenance | None = None,
+):
     """Business logic layer for llm graph extraction."""
 
     return await ask_llm(
@@ -30,4 +36,5 @@ async def llm_graph(text: str, model: str, doc_ids: list[str] | None = None):
             "data/known_entity_embeddings/all-MiniLM-L6-v2"
         ),
         doc_ids=doc_ids,
+        provenance=provenance,
     )

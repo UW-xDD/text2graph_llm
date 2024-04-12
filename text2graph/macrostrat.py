@@ -83,7 +83,10 @@ async def get_strat_records(strat_name: str, exact: bool = False) -> list[dict]:
             f"{BASE_URL}/defs/strat_names?strat_name={strat_name}"
         )
         response.raise_for_status()
+        macrostrat_version = response.json()["success"]["v"]
         matches = response.json()["success"]["data"]
+        for match in matches:
+            match["macrostrat_version"] = macrostrat_version
         if exact:
             matches = [match for match in matches if match["strat_name"] == strat_name]
         if not matches:

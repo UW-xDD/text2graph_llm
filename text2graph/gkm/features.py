@@ -1,7 +1,6 @@
 from enum import IntEnum
 from dataclasses import dataclass
 from rdflib import Graph, Literal, RDF, RDFS, XSD, Namespace, URIRef, BNode
-import logging
 
 from text2graph.macrostrat import get_all_intervals
 from text2graph.schema import Stratigraphy, RelationshipTriplet
@@ -9,7 +8,7 @@ from text2graph.schema import Stratigraphy, RelationshipTriplet
 
 def define_object_node(triplet_object: Stratigraphy) -> URIRef:
     """
-    create strat_name node/URIRef for subject/strat_name dict
+    create strat_name node/URIRef for object/strat_name dict
     :param triplet_object: subject/strat_name dict
     :return: URIRef
     """
@@ -37,6 +36,8 @@ STRAT_RANK_EXPANSION = {
     "SGp": "Supergroup",
 }
 
+STRAT_RANK_CONTRACTION = {v: k for k, v in STRAT_RANK_EXPANSION.items()}
+
 STRAT_RANK_LOOKUP = {
     "Bed": Rank.BED,
     "Mbr": Rank.MEMBER,
@@ -54,7 +55,6 @@ PROV = Namespace("http://www.w3.org/ns/prov#")
 PAV = Namespace("http://purl.org/pav/")
 MSL = Namespace("https://macrostrat.org/lexicon/")
 XDD = Namespace("https://xdd.wisc.edu/lexicon/")
-
 
 RANK_LOOKUP = {
     "Bed": GSGU.Bed,
@@ -190,7 +190,25 @@ def stratigraphic_type(
     """
     add object node to the graph with type as macrostrat stratigraphic rank
     """
-    g.add((object_node, RDF.type, RANK_LOOKUP[triplet.object.rank]))
+    # Stratigprahy has Macrostrat defined rank
+    try:
+        g.add((object_node, RDF.type, RANK_LOOKUP[triplet.object.rank]))
+        return g
+    except KeyError:
+        pass
+
+    # Stratigraphy name has rank as last word in name
+    try:
+        name_from_title = triplet.object.strat_name.split()[-1].title()
+        if len(name_from_title) > 3:
+            name_from_title = STRAT_RANK_CONTRACTION[name_from_title]
+        g.add((object_node, RDF.type, RANK_LOOKUP[name_from_title]))
+        return g
+    except KeyError:
+        pass
+
+    # No specific stratigraphic rank
+    g.add((object_node, RDF.type, GSGU.StratigraphicUnit))
     return g
 
 
@@ -204,10 +222,10 @@ def stratigraphic_label(
         label = triplet.object.strat_name_long
         if label and label != "None":
             g.add((object_node, RDFS.label, Literal(label, lang="en")))
-        else:
-            logging.warning(f"{label} not a valid stratname")
-    except (KeyError, ValueError):
-        g.add((object_node, RDFS.label, Literal(triplet.object.strat_name, lang="en")))
+            return g
+    except (KeyError, AttributeError):
+        pass
+    g.add((object_node, RDFS.label, Literal(triplet.object.strat_name, lang="en")))
     return g
 
 
@@ -217,41 +235,77 @@ def triplet_provenance(
     """
     add triplet and object provenance to the object node
     """
-    xdd_text_processor_node = URIRef("XDDTextProcessorAPI", XDD)
+    hybrid_api_provenance = triplet.provenance.find("Ask_xDD_hybrid_API")
+
+    # xdd textpreprocessor HayStack
+    xdd_text_processor_node = URIRef("XDDTextPreProcessor", XDD)
     g.add((xdd_text_processor_node, RDF.type, PROV.entity))
     g.add(
         (
             xdd_text_processor_node,
             RDFS.label,
-            Literal("xDD text processor API", lang="en"),
+            Literal(
+                hybrid_api_provenance.additional_values["preprocessor_id"], lang="en"
+            ),
         )
     )
-    g.add((xdd_text_processor_node, PAV.version, Literal("v1", datatype=XSD.string)))
+    g.add(
+        (
+            xdd_text_processor_node,
+            PAV.version,
+            Literal(
+                hybrid_api_provenance.additional_values["preprocessor_id"],
+                datatype=XSD.string,
+            ),
+        )
+    )
 
+    # XDDCorpus/DocIDS
     doc_ids_corpus_node = URIRef("XDDCorpus", XDD)
     g.add((doc_ids_corpus_node, RDF.type, PROV.entity))
     g.add((doc_ids_corpus_node, RDFS.label, Literal("xDD document ids", lang="en")))
     g.add(
         (
             doc_ids_corpus_node,
-            XDD.docIDList,
-            Literal(triplet.provenance.additional_values["doc_ids"]),
+            XDD.docID,
+            Literal(
+                hybrid_api_provenance.additional_values["paper_id"], datatype=XSD.string
+            ),
+        )
+    )
+    g.add(
+        (
+            doc_ids_corpus_node,
+            XDD.docURL,
+            Literal(
+                hybrid_api_provenance.additional_values["url"], datatype=XSD.anyURI
+            ),
         )
     )
     g.add((doc_ids_corpus_node, PROV.used, xdd_text_processor_node))
 
-    rag_hybrid_retriever_node = URIRef("USGSRagHybridRetriever", XDD)
+    # RAG App/Hybrid endpoint
+    rag_hybrid_retriever_node = URIRef(
+        hybrid_api_provenance.source_name.replace(" ", ""), XDD
+    )
     g.add((rag_hybrid_retriever_node, RDF.type, PROV.entity))
     g.add(
         (
-            doc_ids_corpus_node,
+            rag_hybrid_retriever_node,
             RDFS.label,
-            Literal("RAG hybrid retriever API", lang="en"),
+            Literal(hybrid_api_provenance.source_name, lang="en"),
         )
     )
-    g.add((rag_hybrid_retriever_node, PAV.version, Literal("v1", datatype=XSD.string)))
+    g.add(
+        (
+            rag_hybrid_retriever_node,
+            PAV.version,
+            Literal(hybrid_api_provenance.source_version, datatype=XSD.string),
+        )
+    )
     g.add((rag_hybrid_retriever_node, PROV.used, doc_ids_corpus_node))
 
+    # LLM Model
     llm_entity_node = URIRef(triplet.provenance.source_name, XDD)
     g.add((llm_entity_node, RDF.type, PROV.entity))
     g.add(
@@ -262,6 +316,7 @@ def triplet_provenance(
         )
     )
 
+    # LLM Query
     llm_query_node = URIRef(triplet.provenance.source_name + "_query", XDD)
     g.add((llm_query_node, RDF.type, PROV.activity))
     g.add(
@@ -310,7 +365,10 @@ def stratigraphic_rank_relations(
     Add stratigraphic rank relationships in subject_data to graph by using macrostrat Stratigraphy Member, Formation, Group and Supergroup values
     """
     subject_data = triplet.object.model_dump()
-    subject_rank_relation = RankRelation.from_subject_data(subject_data)
+    try:
+        subject_rank_relation = RankRelation.from_subject_data(subject_data)
+    except KeyError:
+        return g
     for rank in STRAT_RANK_LOOKUP.keys():
         rank_relation_name = subject_data[rank.lower()]
         rank_relation_dct = dict(

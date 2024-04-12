@@ -7,6 +7,8 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
+from text2graph.schema import Provenance
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -36,6 +38,7 @@ class GraphRequest(BaseModel):
     text: str
     model: str = "mixtral"
     doc_ids: list[str] | None = None
+    provenance: Provenance | None = None
 
 
 @app.get("/", tags=["Documentation"])

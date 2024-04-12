@@ -55,6 +55,7 @@ async def ask_llm(
     to_triplets: bool = True,
     alignment_handler: AlignmentHandler | None = None,
     doc_ids: list[str] | None = None,
+    provenance: Provenance | None = None,
 ) -> str | GraphOutput:
     """Ask model with a data package.
 
@@ -87,17 +88,19 @@ async def ask_llm(
 
     ask_llm_provenance = Provenance(
         source_name=model.__class__.__name__,
-        source_version=model.name,
+        source_version=model.value,
         additional_values=dict(
-            temperature=temperature, prompt=prompt_handler.version, doc_ids=doc_ids
+            temperature=temperature,
+            prompt=prompt_handler.version,
+            doc_ids=doc_ids,
         ),
+        previous=provenance,
     )
-
     return await post_process(
         raw_llm_output=raw_output,
         prompt_handler=prompt_handler,
         alignment_handler=alignment_handler,
-        llm_provenance=ask_llm_provenance,
+        provenance=ask_llm_provenance,
     )
 
 
@@ -201,7 +204,7 @@ async def post_process(
     prompt_handler: PromptHandler,
     alignment_handler: AlignmentHandler | None = None,
     threshold: float = 0.95,
-    llm_provenance: Provenance | None = None,
+    provenance: Provenance | None = None,
 ) -> GraphOutput:
     """Post-process raw output to GraphOutput model."""
     triplets = json.loads(raw_llm_output)
@@ -214,7 +217,7 @@ async def post_process(
         subject_key=prompt_handler.subject_key,
         object_key=prompt_handler.object_key,
         predicate_key=prompt_handler.predicate_key,
-        llm_provenance=llm_provenance,
+        llm_provenance=provenance,
     )
 
     triplets = [triplet_format_func(triplet) for triplet in triplets["triplets"]]

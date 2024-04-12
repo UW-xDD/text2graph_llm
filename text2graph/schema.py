@@ -18,9 +18,23 @@ class Provenance(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     source_name: str
     source_url: str | None = None
-    source_version: str | None = None
+    source_version: str | int | float | None = None
     requested: datetime = datetime.utcnow()
-    additional_values: dict[str, str | float | int | list[str]] | None = None
+    additional_values: dict[str, str | float | int | list[str] | None] | None = None
+    previous: Provenance | None = None
+
+    def find(self, source_name: str) -> Provenance | None:
+        """
+        return provenance object from provenance chain with matching source name if no matching source name returns None
+        :param source_name: exact match for provenance chain source name
+        :return: Provenance object or None
+        """
+        if self.source_name == source_name:
+            return self
+        elif not self.previous:
+            return None
+        else:
+            return self.previous.find(source_name=source_name)
 
 
 class Lithology(BaseModel):
@@ -54,6 +68,7 @@ class Lithology(BaseModel):
         self.provenance = Provenance(
             source_name="Macrostrat",
             source_url=f"{macrostrat.BASE_URL}'/defs/lithologies?lith_id={hit['lith_id']}",
+            previous=self.provenance,
         )
 
 
@@ -93,13 +108,16 @@ class Stratigraphy(BaseModel):
             logging.info(f"No records found for stratigraphy '{self.strat_name}'")
             return
 
+        macrostrat_version = hit.pop("macrostrat_version")
         # Load data into model
         for k, v in hit.items():
             setattr(self, k, v)
 
         self.provenance = Provenance(
             source_name="Macrostrat",
+            source_version=macrostrat_version,
             source_url=f"{macrostrat.BASE_URL}/defs/strat_names?strat_name_id={hit['strat_name_id']}",
+            previous=self.provenance,
         )
 
 
@@ -123,7 +141,10 @@ class Location(BaseModel):
         self.lat, self.lon, request_url = await get_gps(self.name)
         if self.lat and self.lon:
             self.provenance = Provenance(
-                source_name="SERPAPI", source_url=request_url, requested=datetime.now()
+                source_name="SERPAPI",
+                source_url=request_url,
+                requested=datetime.now(),
+                previous=self.provenance,
             )
 
 

@@ -1,6 +1,5 @@
 import os
 import logging
-from datetime import datetime
 
 import requests
 from dotenv import load_dotenv
@@ -50,11 +49,27 @@ class USGSRetriever:
             source_version = response.json()[0]["version"]
         except KeyError:
             pass
+        selected_keys_dict = {}
+        selected_keys = [
+            "paper_id",
+            "url",
+            "preprocessor_id",
+            "doc_type",
+            "topic_list",
+            "hashed_text",
+            "cosmos_object_id",
+            "distance",
+        ]
+        for x in selected_keys:
+            try:
+                selected_keys_dict[x] = paragraph[x]
+            except KeyError:
+                pass
         paragraph["provenance"] = Provenance(
             source_name="Ask_xDD_hybrid_API",
             source_url=ASK_XDD_URL,
             source_version=source_version,
-            requested=datetime.now(),
+            additional_values=selected_keys_dict,
         )
         return Paragraph(**paragraph)
 
