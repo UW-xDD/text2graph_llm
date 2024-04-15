@@ -11,7 +11,7 @@ from openai import OpenAI
 
 from text2graph.alignment import AlignmentHandler
 from text2graph.askxdd import Retriever
-from text2graph.gkm import to_ttl
+from text2graph.gkm.gkm import to_ttl
 from text2graph.prompt import PromptHandler, PromptHandlerV3, to_handler
 from text2graph.schema import GraphOutput, Provenance, RelationshipTriplet, Stratigraphy
 
@@ -253,48 +253,6 @@ async def post_process(
     output = GraphOutput(triplets=triplets)
     await output.hydrate()
     return output
-
-
-async def ask_llm(
-    text: str,
-    prompt_handler: PromptHandler | str = "v3",
-    model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
-    temperature: float = 0.0,
-    to_triplets: bool = True,
-    alignment_handler: AlignmentHandler | None = None,
-) -> str | GraphOutput:
-    """Ask model with a data package.
-
-    Example input: [{"role": "user", "content": "Hello world example in python."}]
-    """
-
-    # Convert model string to enum
-    if isinstance(model, str):
-        model = to_model(model)
-
-    # Convert prompt handler string to object
-    if isinstance(prompt_handler, str):
-        prompt_handler = to_handler(prompt_handler)
-
-    messages = prompt_handler.get_gpt_messages(text)
-
-    if isinstance(model, OpenSourceModel):
-        raw_output = query_ollama(model, messages, temperature)
-
-    if isinstance(model, OpenAIModel):
-        raw_output = query_openai(model, messages, temperature)
-
-    if isinstance(model, AnthropicModel):
-        raw_output = query_anthropic(model, messages, temperature)
-
-    if not to_triplets:
-        return raw_output
-
-    return await post_process(
-        raw_llm_output=raw_output,
-        prompt_handler=prompt_handler,
-        alignment_handler=alignment_handler,
-    )
 
 
 async def llm_graph_from_search(query: str, top_k: int, model: str, ttl: bool = True):
