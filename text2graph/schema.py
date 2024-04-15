@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from uuid import UUID, uuid4
-from datetime import datetime
+from datetime import datetime, UTC
 from pydantic import BaseModel, Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
@@ -19,7 +19,7 @@ class Provenance(BaseModel):
     source_name: str
     source_url: str | None = None
     source_version: str | int | float | None = None
-    requested: datetime = datetime.utcnow()
+    requested: datetime = datetime.now(UTC)
     additional_values: dict[str, str | float | int | list[str] | None] | None = None
     previous: Provenance | None = None
 
