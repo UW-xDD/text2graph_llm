@@ -52,7 +52,7 @@ def triplet_to_rdf(triplet: dict | RelationshipTriplet) -> Graph | None:
         try:
             g = feat(g=g, triplet=triplet, object_node=object_node)
         except Exception as e:
-            logging.warning(
+            logging.info(
                 f"failed to add {feat.__name__} to graph with error:{e} for {triplet=}"
             )
     return g
