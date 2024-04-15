@@ -49,63 +49,6 @@ def to_model(model: str) -> OpenSourceModel | OpenAIModel | AnthropicModel:
         raise ValueError(f"Model '{model}' is not supported.")
 
 
-async def ask_llm(
-    text: str,
-    prompt_handler: PromptHandler | str = "v3",
-    model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
-    temperature: float = 0.0,
-    to_triplets: bool = True,
-    alignment_handler: AlignmentHandler | None = None,
-    doc_ids: list[str] | None = None,
-    provenance: Provenance | None = None,
-) -> str | GraphOutput:
-    """Ask model with a data package.
-
-    Example input: [{"role": "user", "content": "Hello world example in python."}]
-    """
-    if not doc_ids:
-        doc_ids = []
-
-    # Convert model string to enum
-    if isinstance(model, str):
-        model = to_model(model)
-
-    # Convert prompt handler string to object
-    if isinstance(prompt_handler, str):
-        prompt_handler = to_handler(prompt_handler)
-
-    messages = prompt_handler.get_gpt_messages(text)
-
-    if isinstance(model, OpenSourceModel):
-        raw_output = query_ollama(model, messages, temperature)
-
-    if isinstance(model, OpenAIModel):
-        raw_output = query_openai(model, messages, temperature)
-
-    if isinstance(model, AnthropicModel):
-        raw_output = query_anthropic(model, messages, temperature)
-
-    if not to_triplets:
-        return raw_output
-
-    ask_llm_provenance = Provenance(
-        source_name=model.__class__.__name__,
-        source_version=model.value,
-        additional_values=dict(
-            temperature=temperature,
-            prompt=prompt_handler.version,
-            doc_ids=doc_ids,
-        ),
-        previous=provenance,
-    )
-    return await post_process(
-        raw_llm_output=raw_output,
-        prompt_handler=prompt_handler,
-        alignment_handler=alignment_handler,
-        provenance=ask_llm_provenance,
-    )
-
-
 def merge_graphs(graphs: list[GraphOutput]) -> GraphOutput:
     """Merge graphs."""
 
@@ -255,14 +198,74 @@ async def post_process(
     return output
 
 
-async def llm_graph_from_search(query: str, top_k: int, model: str, ttl: bool = True):
+async def ask_llm(
+    text: str,
+    prompt_handler: PromptHandler | str = "v3",
+    model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
+    temperature: float = 0.0,
+    to_triplets: bool = True,
+    alignment_handler: AlignmentHandler | None = None,
+    doc_ids: list[str] | None = None,
+    provenance: Provenance | None = None,
+) -> str | GraphOutput:
+    """Ask model with a data package.
+
+    Example input: [{"role": "user", "content": "Hello world example in python."}]
+    """
+    if not doc_ids:
+        doc_ids = []
+
+    # Convert model string to enum
+    if isinstance(model, str):
+        model = to_model(model)
+
+    # Convert prompt handler string to object
+    if isinstance(prompt_handler, str):
+        prompt_handler = to_handler(prompt_handler)
+
+    messages = prompt_handler.get_gpt_messages(text)
+
+    if isinstance(model, OpenSourceModel):
+        raw_output = query_ollama(model, messages, temperature)
+
+    if isinstance(model, OpenAIModel):
+        raw_output = query_openai(model, messages, temperature)
+
+    if isinstance(model, AnthropicModel):
+        raw_output = query_anthropic(model, messages, temperature)
+
+    if not to_triplets:
+        return raw_output
+
+    ask_llm_provenance = Provenance(
+        source_name=model.__class__.__name__,
+        source_version=model.value,
+        additional_values=dict(
+            temperature=temperature,
+            prompt=prompt_handler.version,
+            doc_ids=doc_ids,
+        ),
+        previous=provenance,
+    )
+    return await post_process(
+        raw_llm_output=raw_output,
+        prompt_handler=prompt_handler,
+        alignment_handler=alignment_handler,
+        provenance=ask_llm_provenance,
+    )
+
+
+async def llm_graph_from_search(
+    query: str, top_k: int, model: str, ttl: bool = True
+) -> str | GraphOutput:
     """Business logic layer for llm graph extraction from search."""
 
     r = Retriever()
     paragraphs = r.query(query, top_k=top_k)
+    graphs = []
     for paragraph in paragraphs:
-        paragraph["graph"] = await ask_llm(
-            text=paragraph["text_content"],
+        graph = await ask_llm(
+            text=paragraph.text_content,
             prompt_handler=PromptHandlerV3(),
             model=model,
             temperature=0.0,
@@ -270,13 +273,16 @@ async def llm_graph_from_search(query: str, top_k: int, model: str, ttl: bool = 
             alignment_handler=AlignmentHandler.load(
                 "data/known_entity_embeddings/all-MiniLM-L6-v2"
             ),
+            doc_ids=[
+                paragraph.paper_id
+            ],  # TODO: Check with Iain to see if this is the intended usage. A bit weird here because a paragraph can only comes from one document, why we need a list?
+            provenance=paragraph.provenance,
         )
+        graphs.append(graph)
 
     logging.info(paragraphs)
 
-    # TODO: Perhaps here is a good place to add provenance information
-
-    graph = merge_graphs([paragraph["graph"] for paragraph in paragraphs])
+    graph = merge_graphs(graphs)
 
     if ttl:
         return to_ttl(graph)
