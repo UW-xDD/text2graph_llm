@@ -1,13 +1,16 @@
 from __future__ import annotations
+
 import asyncio
 import logging
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
-from datetime import datetime, UTC
-from pydantic import BaseModel, Field
+
+from pydantic import AnyUrl, BaseModel, Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
 from text2graph import macrostrat
+
 from .geolocation.serpapi import get_gps
 from .macrostrat import get_lith_records, get_strat_records
 
@@ -35,6 +38,21 @@ class Provenance(BaseModel):
             return None
         else:
             return self.previous.find(source_name=source_name)
+
+
+class Paragraph(BaseModel):
+    """Enriched Ask-xDD Retriever results."""
+
+    paper_id: str
+    preprocessor_id: str
+    doc_type: str
+    topic_list: list[str]
+    text_content: str
+    hashed_text: str
+    cosmos_object_id: str | None
+    distance: float
+    url: AnyUrl
+    provenance: Provenance
 
 
 class Lithology(BaseModel):
