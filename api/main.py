@@ -7,8 +7,6 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
-from text2graph.schema import Provenance
-
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,8 +36,6 @@ async def has_valid_api_key(api_key_header: str = Depends(api_key_header)):
 class GraphRequest(BaseModel):
     text: str
     model: str = "mixtral"
-    doc_ids: list[str] | None = None
-    provenance: Provenance | None = None
 
 
 @app.get("/", tags=["Documentation"])
