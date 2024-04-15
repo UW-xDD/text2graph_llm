@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
+
 logging.basicConfig(level=logging.INFO)
 
 

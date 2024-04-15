@@ -1,12 +1,40 @@
+from __future__ import annotations
 import asyncio
 import logging
-
-from pydantic import BaseModel
+from uuid import UUID, uuid4
+from datetime import datetime, UTC
+from pydantic import BaseModel, Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
+from text2graph import macrostrat
 from .geolocation.serpapi import get_gps
 from .macrostrat import get_lith_records, get_strat_records
+
+
+class Provenance(BaseModel):
+    """class for collecting data source information"""
+
+    id: UUID = Field(default_factory=uuid4)
+    source_name: str
+    source_url: str | None = None
+    source_version: str | int | float | None = None
+    requested: datetime = datetime.now(UTC)
+    additional_values: dict[str, str | float | int | list[str] | None] | None = None
+    previous: Provenance | None = None
+
+    def find(self, source_name: str) -> Provenance | None:
+        """
+        return provenance object from provenance chain with matching source name if no matching source name returns None
+        :param source_name: exact match for provenance chain source name
+        :return: Provenance object or None
+        """
+        if self.source_name == source_name:
+            return self
+        elif not self.previous:
+            return None
+        else:
+            return self.previous.find(source_name=source_name)
 
 
 class Lithology(BaseModel):
@@ -18,6 +46,7 @@ class Lithology(BaseModel):
     color: str | None = None
     fill: int | None = None
     t_units: int | None = None
+    provenance: Provenance | None = None
 
     async def hydrate(self) -> None:
         """Hydrate Lithology from macrostrat."""
@@ -35,6 +64,12 @@ class Lithology(BaseModel):
                 )  # Avoid clashing with reserved keyword 'class'
             else:
                 setattr(self, k, v)
+
+        self.provenance = Provenance(
+            source_name="Macrostrat",
+            source_url=f"{macrostrat.BASE_URL}'/defs/lithologies?lith_id={hit['lith_id']}",
+            previous=self.provenance,
+        )
 
 
 class Stratigraphy(BaseModel):
@@ -62,6 +97,7 @@ class Stratigraphy(BaseModel):
     c_interval: str | None = None
     t_units: int | None = None
     ref_id: int | None = None
+    provenance: Provenance | None = None
 
     async def hydrate(self) -> None:
         """Hydrate Stratigraphy from macrostrat."""
@@ -72,9 +108,17 @@ class Stratigraphy(BaseModel):
             logging.info(f"No records found for stratigraphy '{self.strat_name}'")
             return
 
+        macrostrat_version = hit.pop("macrostrat_version")
         # Load data into model
         for k, v in hit.items():
             setattr(self, k, v)
+
+        self.provenance = Provenance(
+            source_name="Macrostrat",
+            source_version=macrostrat_version,
+            source_url=f"{macrostrat.BASE_URL}/defs/strat_names?strat_name_id={hit['strat_name_id']}",
+            previous=self.provenance,
+        )
 
 
 def valid_longitude(v: float) -> float:
@@ -91,26 +135,17 @@ class Location(BaseModel):
     name: str
     lat: Annotated[float, AfterValidator(valid_latitude)] | None = None
     lon: Annotated[float, AfterValidator(valid_longitude)] | None = None
+    provenance: Provenance | None = None
 
     async def hydrate(self) -> None:
-        self.lat, self.lon = await get_gps(self.name)
-
-
-def strip_tuples_return_float(value: str | float | tuple[float] | list[float]) -> float:
-    """
-    take first value of any tuple passed and conver to float. if conversion failure return None
-    :param value: value to 'un-tuple' and convert
-    :return: float or None
-    """
-    try:
-        untupled = value[0]
-    except (TypeError, IndexError):
-        untupled = value
-    try:
-        result = float(untupled)
-    except (ValueError, TypeError):
-        result = None
-    return result
+        self.lat, self.lon, request_url = await get_gps(self.name)
+        if self.lat and self.lon:
+            self.provenance = Provenance(
+                source_name="SERPAPI",
+                source_url=request_url,
+                requested=datetime.now(),
+                previous=self.provenance,
+            )
 
 
 class RelationshipTriplet(BaseModel):
@@ -125,12 +160,15 @@ class RelationshipTriplet(BaseModel):
     subject: str | Location
     predicate: str  # relationship, str for now...
     object: str | Stratigraphy
+    provenance: Provenance | None = None
 
     def model_post_init(self, __context) -> None:
         if isinstance(self.subject, str):
-            self.subject = Location(name=self.subject)
+            self.subject = Location(name=self.subject, provenance=self.provenance)
         if isinstance(self.object, str):
-            self.object = Stratigraphy(strat_name=self.object)
+            self.object = Stratigraphy(
+                strat_name=self.object, provenance=self.provenance
+            )
 
 
 class GraphOutput(BaseModel):

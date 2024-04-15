@@ -17,7 +17,10 @@ def generate_known_entity_embeddings() -> None:
     handler.save()
 
 
-async def llm_graph(text: str, model: str):
+async def llm_graph(
+    text: str,
+    model: str,
+):
     """Business logic layer for llm graph extraction."""
 
     return await ask_llm(

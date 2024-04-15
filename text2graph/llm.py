@@ -11,7 +11,7 @@ from openai import OpenAI
 
 from .alignment import AlignmentHandler
 from .prompt import PromptHandler, to_handler
-from .schema import GraphOutput, RelationshipTriplet, Stratigraphy
+from .schema import GraphOutput, RelationshipTriplet, Stratigraphy, Provenance
 
 load_dotenv()
 
@@ -54,11 +54,15 @@ async def ask_llm(
     temperature: float = 0.0,
     to_triplets: bool = True,
     alignment_handler: AlignmentHandler | None = None,
+    doc_ids: list[str] | None = None,
+    provenance: Provenance | None = None,
 ) -> str | GraphOutput:
     """Ask model with a data package.
 
     Example input: [{"role": "user", "content": "Hello world example in python."}]
     """
+    if not doc_ids:
+        doc_ids = []
 
     # Convert model string to enum
     if isinstance(model, str):
@@ -82,10 +86,21 @@ async def ask_llm(
     if not to_triplets:
         return raw_output
 
+    ask_llm_provenance = Provenance(
+        source_name=model.__class__.__name__,
+        source_version=model.value,
+        additional_values=dict(
+            temperature=temperature,
+            prompt=prompt_handler.version,
+            doc_ids=doc_ids,
+        ),
+        previous=provenance,
+    )
     return await post_process(
         raw_llm_output=raw_output,
         prompt_handler=prompt_handler,
         alignment_handler=alignment_handler,
+        provenance=ask_llm_provenance,
     )
 
 
@@ -169,13 +184,18 @@ def query_anthropic(
 
 
 def to_triplet(
-    triplet: dict, subject_key: str, object_key: str, predicate_key: str
+    triplet: dict,
+    subject_key: str,
+    object_key: str,
+    predicate_key: str,
+    llm_provenance: Provenance,
 ) -> RelationshipTriplet:
     """Inject attributes into RelationshipTriples model. Must be {"subject": "x", "object": "y", "predicate": "z"} tuple."""
     return RelationshipTriplet(
         subject=triplet[subject_key],
         object=triplet[object_key],
         predicate=triplet[predicate_key],
+        provenance=llm_provenance,
     )
 
 
@@ -184,6 +204,7 @@ async def post_process(
     prompt_handler: PromptHandler,
     alignment_handler: AlignmentHandler | None = None,
     threshold: float = 0.95,
+    provenance: Provenance | None = None,
 ) -> GraphOutput:
     """Post-process raw output to GraphOutput model."""
     triplets = json.loads(raw_llm_output)
@@ -196,6 +217,7 @@ async def post_process(
         subject_key=prompt_handler.subject_key,
         object_key=prompt_handler.object_key,
         predicate_key=prompt_handler.predicate_key,
+        llm_provenance=provenance,
     )
 
     triplets = [triplet_format_func(triplet) for triplet in triplets["triplets"]]
@@ -212,6 +234,12 @@ async def post_process(
             if closest != name:
                 logging.info("Swaping", name, "with", closest)
                 triplet.object = Stratigraphy(strat_name=closest)
+                triplet.object.provenance.additional_values[
+                    "alignment_old_strat_name"
+                ] = name
+                triplet.object.provenance.additional_values[
+                    "alignment_handler_model"
+                ] = alignment_handler.model_name
 
     output = GraphOutput(triplets=triplets)
     await output.hydrate()

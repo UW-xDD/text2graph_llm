@@ -15,8 +15,7 @@ class AlignmentHandler:
         self.model_name = model_name
         self.known_entity_names = known_entity_names
         self.known_entity_embeddings = known_entity_embeddings
-
-        self.model = SentenceTransformer(model_name)
+        self.model = SentenceTransformer(model_name, device="cpu")
 
         # Instantiate from scratch
         if self.known_entity_embeddings is None:
