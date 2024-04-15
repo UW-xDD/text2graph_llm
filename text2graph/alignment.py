@@ -1,10 +1,8 @@
-import os
 from pathlib import Path
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import pairwise_cos_sim
-import torch
 
 
 class AlignmentHandler:
@@ -17,16 +15,7 @@ class AlignmentHandler:
         self.model_name = model_name
         self.known_entity_names = known_entity_names
         self.known_entity_embeddings = known_entity_embeddings
-
-        if os.environ["ALIGNMENT_ENTITY_EMBEDDING_PROCESSOR"]:
-            device = os.environ["ALIGNMENT_ENTITY_EMBEDDING_PROCESSOR"]
-        else:
-            if torch.cuda.is_available():
-                device = "cuda"
-            else:
-                device = "cpu"
-
-        self.model = SentenceTransformer(model_name, device=device)
+        self.model = SentenceTransformer(model_name, device="cpu")
 
         # Instantiate from scratch
         if self.known_entity_embeddings is None:
