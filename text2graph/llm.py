@@ -175,13 +175,25 @@ async def post_process(
     )
 
     try:
-        triplets = [triplet_format_func(triplet) for triplet in triplets["triplets"]]
+        # Convert triplets to RelationshipTriplet objects
+        safe_triplets = []
+        for triplet in triplets["triplets"]:
+            logging.info(f"{triplet=}")
+            if (
+                not triplet[prompt_handler.subject_key]
+                or not triplet[prompt_handler.object_key]
+                or not triplet[prompt_handler.predicate_key]
+            ):
+                logging.info("Empty subject/object found, skipping.")
+                continue
+            safe_triplets.append(triplet_format_func(triplet))
+
     except KeyError:
         logging.info(f"unexpected triplet format: {triplets}")
         raise ValueError("Unexpected triplet format")
 
     if alignment_handler:
-        for triplet in triplets:
+        for triplet in safe_triplets:
             # Only apply to strat_name because location is not in Macrostrat
             name = triplet.object.strat_name
             closest = alignment_handler.get_closest_known_entity(
@@ -199,7 +211,7 @@ async def post_process(
                     "alignment_handler_model"
                 ] = alignment_handler.model_name
 
-    output = GraphOutput(triplets=triplets)
+    output = GraphOutput(triplets=safe_triplets)
     await output.hydrate()
     return output
 

@@ -5,7 +5,7 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from pydantic import AnyUrl, BaseModel, Field
+from pydantic import AnyUrl, BaseModel, BeforeValidator, Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
@@ -23,7 +23,9 @@ class Provenance(BaseModel):
     source_url: str | None = None
     source_version: str | int | float | None = None
     requested: datetime = datetime.now(UTC)
-    additional_values: dict[str, str | float | int | list[str] | None] | None = None
+    additional_values: dict[str, str | float | int | list[str] | None] = Field(
+        default_factory=dict
+    )
     previous: Provenance | None = None
 
     def find(self, source_name: str) -> Provenance | None:
@@ -139,20 +141,27 @@ class Stratigraphy(BaseModel):
         )
 
 
-def valid_longitude(v: float) -> float:
+def validate_longitude(v: float) -> float:
     assert -180 <= v <= 180, f"{v} is not a valid longitude"
     return v
 
 
-def valid_latitude(v: float) -> float:
+def validate_latitude(v: float) -> float:
     assert -90 <= v <= 90, f"{v} is not a valid latitude"
     return v
 
 
+def validate_location_name(v: str | list) -> str:
+    """Force location name to be a string."""
+    if isinstance(v, list):
+        return ", ".join(v)
+    return v
+
+
 class Location(BaseModel):
-    name: str
-    lat: Annotated[float, AfterValidator(valid_latitude)] | None = None
-    lon: Annotated[float, AfterValidator(valid_longitude)] | None = None
+    name: Annotated[str, BeforeValidator(validate_location_name)]
+    lat: Annotated[float, AfterValidator(validate_latitude)] | None = None
+    lon: Annotated[float, AfterValidator(validate_longitude)] | None = None
     provenance: Provenance | None = None
 
     async def hydrate(self) -> None:
