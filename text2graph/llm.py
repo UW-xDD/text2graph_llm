@@ -161,8 +161,10 @@ async def post_process(
     """Post-process raw output to GraphOutput model."""
     triplets = json.loads(raw_llm_output)
 
+    # Handle different response formats form different llms
     if "triplets" not in triplets:
-        raise ValueError("Response does not contain 'triplets' key.")
+        logging.info(f"unexpected triplet format: {triplets}, attempting to fix.")
+        triplets = {"triplets": triplets}
 
     triplet_format_func = partial(
         to_triplet,
@@ -172,7 +174,11 @@ async def post_process(
         llm_provenance=provenance,
     )
 
-    triplets = [triplet_format_func(triplet) for triplet in triplets["triplets"]]
+    try:
+        triplets = [triplet_format_func(triplet) for triplet in triplets["triplets"]]
+    except KeyError:
+        logging.info(f"unexpected triplet format: {triplets}")
+        raise ValueError("Unexpected triplet format")
 
     if alignment_handler:
         for triplet in triplets:
