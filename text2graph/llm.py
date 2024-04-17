@@ -8,6 +8,7 @@ import requests
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from openai import OpenAI
+from pydantic import ValidationError
 
 from text2graph.alignment import AlignmentHandler
 from text2graph.askxdd import Retriever
@@ -178,15 +179,10 @@ async def post_process(
         # Convert triplets to RelationshipTriplet objects
         safe_triplets = []
         for triplet in triplets["triplets"]:
-            logging.info(f"{triplet=}")
-            if (
-                not triplet[prompt_handler.subject_key]
-                or not triplet[prompt_handler.object_key]
-                or not triplet[prompt_handler.predicate_key]
-            ):
-                logging.info("Empty subject/object found, skipping.")
-                continue
-            safe_triplets.append(triplet_format_func(triplet))
+            try:
+                safe_triplets.append(triplet_format_func(triplet))
+            except ValidationError:
+                logging.error(f"ValidationError: when converting {triplet}")
 
     except KeyError:
         logging.info(f"unexpected triplet format: {triplets}")
