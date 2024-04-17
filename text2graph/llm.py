@@ -200,12 +200,6 @@ async def post_process(
             if closest != name:
                 logging.info("Swapping", name, "with", closest)
                 triplet.object = Stratigraphy(strat_name=closest)
-                triplet.object.provenance.additional_values[
-                    "alignment_old_strat_name"
-                ] = name
-                triplet.object.provenance.additional_values[
-                    "alignment_handler_model"
-                ] = alignment_handler.model_name
 
     output = GraphOutput(triplets=safe_triplets)
     await output.hydrate()
