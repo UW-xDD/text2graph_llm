@@ -72,7 +72,7 @@ def query_openai(
     return completion.choices[0].message.content
 
 
-def query_ollama(
+def query_local_ollama(
     model: OpenSourceModel, messages: list[dict], temperature: float = 0.0
 ) -> str:
     """Query self-hosted OLLAMA for language model completion."""
@@ -94,6 +94,36 @@ def query_ollama(
     )
     response.raise_for_status()
     return response.json()["message"]["content"]
+
+
+def query_llm_queue(
+    model: OpenSourceModel, messages: list[dict], temperature: float = 0.0
+) -> str:
+    """Query CHTC Ollama proxy."""
+
+    CHTC_LLM_API_URL = (
+        f"http://{os.getenv('CHTC_LLM_HOST')}:{os.getenv('CHTC_LLM_PORT')}"
+    )
+    auth_headers = {"Api-Key": os.getenv("CHTC_LLM_API_KEY")}
+
+    # This is vanilla Ollama API style
+    data = {
+        "model": model.value,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": False,
+        "format": "json",
+    }
+    # Non-streaming mode
+    response = requests.post(
+        f"{CHTC_LLM_API_URL}/api/chat", headers=auth_headers, json=data
+    )
+    response.raise_for_status()
+    return (
+        json.loads(response.json()["_content"])["message"]["content"]
+        .strip()
+        .replace("\\", "")
+    )
 
 
 def query_anthropic(
@@ -233,14 +263,21 @@ async def ask_llm(
 
     messages = prompt_handler.get_gpt_messages(text)
 
+    use_chtc = int(os.getenv("USE_CHTC_LLM", 0))
+
     if isinstance(model, OpenSourceModel):
-        raw_output = query_ollama(model, messages, temperature)
+        if use_chtc:
+            raw_output = query_llm_queue(model, messages, temperature)
+        else:
+            raw_output = query_local_ollama(model, messages, temperature)
 
     if isinstance(model, OpenAIModel):
         raw_output = query_openai(model, messages, temperature)
 
     if isinstance(model, AnthropicModel):
         raw_output = query_anthropic(model, messages, temperature)
+
+    logging.debug(f"Raw llm output: {raw_output}")
 
     if not to_triplets:
         return raw_output
@@ -255,6 +292,8 @@ async def ask_llm(
         ),
         previous=provenance,
     )
+
+    logging.debug(f"Provenance: {ask_llm_provenance}")
     return await post_process(
         raw_llm_output=raw_output,
         prompt_handler=prompt_handler,
