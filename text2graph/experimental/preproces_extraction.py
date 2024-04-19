@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import logging
 import os
@@ -12,7 +13,7 @@ from dotenv import load_dotenv
 
 from text2graph.llm import ask_llm
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 WEAVIATE_APIKEY = os.getenv("WEAVIATE_APIKEY")
@@ -156,15 +157,32 @@ def worker(queue: Queue) -> None:
         queue.task_done()
 
 
-def main(batch_size: int = 100, n_workers: int = 10):
+def get_processed_count() -> int:
+    """Get the number of cases already processed."""
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute(f"SELECT COUNT(*) FROM {DB_NAME}")
+        result = cur.fetchone()
+    return result[0]
+
+
+def main(batch_size: int = 300, n_workers: int = 30):
+    # Create DB if it doesn't exist
     create_db()
+
+    # Resume from the no. cases already processed
+    try:
+        n = get_processed_count()
+    except Exception as e:
+        logging.error(f"Failed to get the number of cases already processed: {e}")
+        n = 0
+
     queue = Queue(maxsize=batch_size)
     threads = [threading.Thread(target=worker, args=(queue,)) for _ in range(n_workers)]
 
     for thread in threads:
         thread.start()
 
-    n = 0
     while True:
         batch = get_batch(
             ["hashed_text", "text_content", "paper_id"], batch_size=batch_size, offset=n
@@ -186,4 +204,7 @@ def main(batch_size: int = 100, n_workers: int = 10):
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--batch_size", type=int, default=300)
+    parser.add_argument("--n_workers", type=int, default=30)
+    main(**vars(parser.parse_args()))
