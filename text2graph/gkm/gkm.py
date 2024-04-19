@@ -1,21 +1,22 @@
 import logging
 from pathlib import Path
 from typing import Protocol
-from rdflib import Graph, URIRef
-from pydantic import ValidationError
 
-from text2graph.schema import RelationshipTriplet
+from pydantic import ValidationError
+from rdflib import Graph, URIRef
+
 from text2graph.gkm.features import (
     default_rdf_graph,
     define_object_node,
-    stratigraphic_type,
-    stratigraphic_label,
-    triplet_provenance,
-    spatial_location,
-    stratigraphic_rank_relations,
     deposition_age,
+    spatial_location,
+    stratigraphic_label,
+    stratigraphic_rank_relations,
+    stratigraphic_type,
     time_span,
+    triplet_provenance,
 )
+from text2graph.schema import GraphOutput, RelationshipTriplet
 
 
 class GraphFeatureGenerator(Protocol):
@@ -70,3 +71,19 @@ def graph_to_ttl_string(g: Graph, filename: Path | None = None) -> str:
         with open(filename, "w") as f:
             f.write(output)
     return output
+
+
+def to_ttl(graph: GraphOutput) -> str:
+    """Convert GraphOutput object to TTL string."""
+
+    ttls = []
+    for triplet in graph.triplets:
+        try:
+            g = triplet_to_rdf(triplet)
+            ttl = graph_to_ttl_string(g)
+            ttls.append(ttl)
+        except Exception as e:
+            logging.error(f"Error converting triplet to RDF: {e}")
+            continue
+
+    return "\n".join(ttls)

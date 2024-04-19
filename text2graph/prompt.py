@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 
 from text2graph.macrostrat import find_all_occurrences, get_all_strat_names
 
@@ -17,16 +17,16 @@ class PromptHandler(ABC):
     @abstractmethod
     def get_user_prompt(self, text: str) -> str: ...
 
-    @abstractproperty
+    @property
     def version(self) -> str: ...
 
-    @abstractproperty
+    @property
     def subject_key(self) -> str: ...
 
-    @abstractproperty
+    @property
     def object_key(self) -> str: ...
 
-    @abstractproperty
+    @property
     def predicate_key(self) -> str: ...
 
     def get_gpt_messages(self, text) -> list[dict]:

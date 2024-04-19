@@ -26,11 +26,11 @@ echo "Building $api_container:$tag"
 docker build -t $api_container:latest -t $api_container:$tag  -f ./api/Dockerfile .
 docker push $api_container:$tag && docker push $api_container:latest
 
-chtc_container=ghcr.io/$GH_USERNAME/"$GH_CONTAINER_NAME"_chtc
-echo "Building $chtc_container:$tag"
-docker build -t $chtc_container:latest -t $chtc_container:$tag  -f ./chtc/Dockerfile .
-docker push $chtc_container:$tag && docker push $chtc_container:latest
+# chtc_container=ghcr.io/$GH_USERNAME/"$GH_CONTAINER_NAME"_chtc
+# echo "Building $chtc_container:$tag"
+# docker build -t $chtc_container:latest -t $chtc_container:$tag  -f ./chtc/Dockerfile .
+# docker push $chtc_container:$tag && docker push $chtc_container:latest
 
 # Tag for record
-git tag $tag -m "release $tag"
-git push --tags
+# git tag $tag -m "release $tag"
+# git push --tags

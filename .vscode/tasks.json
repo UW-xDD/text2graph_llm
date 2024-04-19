@@ -12,6 +12,16 @@
             "label": "rsync-data-pull",
             "type": "shell",
             "command": "rsync -r clo36@submit1.chtc.wisc.edu:/staging/clo36/text2graph/data ./"
+        },
+        {
+            "label": "serve-api",
+            "type": "shell",
+            "command": "uvicorn --app-dir api main:app --reload"
+        },
+        {
+            "label": "serve-demo",
+            "type": "shell",
+            "command": "streamlit run ./demo/main.py"
         }
     ]
 }

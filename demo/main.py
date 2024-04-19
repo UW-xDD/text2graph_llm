@@ -1,58 +1,36 @@
+import asyncio
+import logging
+
 import streamlit as st
-from macrostrat import st_annotated_block
-from text2graph.llm import llm_graph
-from text2graph.gkm import graph_to_ttl_string, triplet_to_rdf
 
+from text2graph.llm import llm_graph_from_search
 
-# @st.cache_data(show_spinner=False, ttl="1h")
-def cached_llm_graph(text: str, model: str, prompt_version: str) -> dict:
-    graph = llm_graph(text, model, prompt_version)
-    return graph.model_dump()
-
-
-DEFAULT_TEXT = "Aarde Shale is in Minnesota."
-
-
-# Layout
+logging.basicConfig(level=logging.INFO)
 st.title("Ask-XDD: Location extraction demo")
 
-text = st.text_area("Input Text", value=DEFAULT_TEXT, height=400)
-
+# Sidebar
 with st.sidebar:
     model = st.radio(
         "Select model",
         [
-            "gpt-4-turbo-preview",
-            "gpt-3.5-turbo",
             "claude-3-opus-20240229",
             "claude-3-sonnet-20240229",
+            "claude-3-haiku-20240307",
             "mixtral",
             "openhermes",
         ],
     )
-    prompt_version = st.radio("Select prompt version", ["v2"])
-
-
-if st.button("Run Models"):
-    st.markdown("### Detected entities")
-    with st.spinner("Checking entities..."):
-        st_annotated_block(text)
-
-    st.markdown("### Run LLM and gather location and Macrostrat data")
-    with st.spinner("Running models..."):
-        outputs = cached_llm_graph(text, model, prompt_version)
-        st.json(outputs)
-
+    ttl = st.radio("Use TTL format", [True, False])
     st.markdown(
-        "### Location and Macrostrat data (only showing known entities in marcrostrat)"
+        "We are currently processing the LLM call in real-time, so we're using top-k=2 for demonstration purposes. In the future, we plan to cache these results and will enable specifying top-k as a parameter."
     )
 
-    known_entities = [
-        t for t in outputs["triplets"] if t["object"]["strat_name_long"] is not None
-    ]
-    st.markdown(f"Found {len(known_entities)} known entities")
-    st.json(known_entities)
-
-    st.markdown("TTL output")
-    ttl = [graph_to_ttl_string(triplet_to_rdf(triplet)) for triplet in known_entities]
-    st.write(ttl)
+# Main content
+query = st.text_input("Query", "iron mines")
+if st.button("Run Models"):
+    st.markdown("### Run LLM and gather location and Macrostrat data")
+    with st.spinner("Running models..."):
+        outputs = llm_graph_from_search(query=query, top_k=2, model=model, ttl=ttl)
+        outputs = asyncio.run(outputs)
+        logging.info(outputs)
+        st.code(outputs)
