@@ -82,7 +82,7 @@ def in_db(id: str) -> bool:
 async def extract(text: str) -> str:
     """Extract json GraphOutput from text."""
 
-    graph = await ask_llm(text, model="mixtral")
+    graph = await ask_llm(text, model="mixtral", hydrate=False)
     return graph.model_dump_json(exclude_unset=True)  # type: ignore
 
 
@@ -166,7 +166,7 @@ def get_processed_count() -> int:
     return result[0]
 
 
-def main(batch_size: int = 300, n_workers: int = 30):
+def main(batch_size: int = 640, n_workers: int = 64):
     # Create DB if it doesn't exist
     create_db()
 

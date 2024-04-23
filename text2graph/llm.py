@@ -187,6 +187,7 @@ async def post_process(
     prompt_handler: PromptHandler,
     alignment_handler: AlignmentHandler | None = None,
     threshold: float = 0.95,
+    hydrate: bool = True,
     provenance: Provenance | None = None,
 ) -> GraphOutput:
     """Post-process raw output to GraphOutput model."""
@@ -232,7 +233,8 @@ async def post_process(
                 triplet.object = Stratigraphy(strat_name=closest)
 
     output = GraphOutput(triplets=safe_triplets)
-    await output.hydrate()
+    if hydrate:
+        await output.hydrate()
     return output
 
 
@@ -244,6 +246,7 @@ async def ask_llm(
     to_triplets: bool = True,
     alignment_handler: AlignmentHandler | None = None,
     doc_ids: list[str] | None = None,
+    hydrate: bool = True,
     provenance: Provenance | None = None,
 ) -> str | GraphOutput:
     """Ask model with a data package.
@@ -298,6 +301,7 @@ async def ask_llm(
         raw_llm_output=raw_output,
         prompt_handler=prompt_handler,
         alignment_handler=alignment_handler,
+        hydrate=hydrate,
         provenance=ask_llm_provenance,
     )
 
