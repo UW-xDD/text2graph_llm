@@ -5,13 +5,13 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+import httpx
 from pydantic import AnyUrl, BaseModel, BeforeValidator, Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
 from text2graph import macrostrat
-
-from .geolocation.serpapi import get_gps
+from .geolocation.geocode import get_gps, RateLimitedClient
 from .macrostrat import get_lith_records, get_strat_records
 
 
@@ -164,11 +164,15 @@ class Location(BaseModel):
     lon: Annotated[float, AfterValidator(validate_longitude)] | None = None
     provenance: Provenance | None = None
 
-    async def hydrate(self) -> None:
-        self.lat, self.lon, request_url = await get_gps(self.name)
+    async def hydrate(self, client: httpx.AsyncClient) -> None:
+        """
+        Hydrate Location (from geocode API)
+        client: httpx.AsyncClient for geocode API use RateLimitedClient
+        """
+        self.lat, self.lon, request_url = await get_gps(self.name, client=client)
         if self.lat and self.lon:
             self.provenance = Provenance(
-                source_name="SERPAPI",
+                source_name="GeocodeAPI",
                 source_url=request_url,
                 requested=datetime.now(),
                 previous=self.provenance,
@@ -205,7 +209,9 @@ class GraphOutput(BaseModel):
 
     async def hydrate(self) -> None:
         """Hydrate all objects in the graph."""
-        await asyncio.gather(
-            # *[triplet.subject.hydrate() for triplet in self.triplets],  # TODO: Find alternative to hydrate Location
-            *[triplet.object.hydrate() for triplet in self.triplets],
-        )
+
+        async with RateLimitedClient(interval=1.0, count=1, timeout=30) as client:
+            await asyncio.gather(
+                *[triplet.subject.hydrate(client=client) for triplet in self.triplets],
+                *[triplet.object.hydrate() for triplet in self.triplets],
+            )
