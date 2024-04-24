@@ -19,4 +19,4 @@ ollama run mixtral "this is a warm up query"
 
 # Run the worker with burst mode
 echo "Running batch..."
-python preprocess_extraction_direct.py $1 $2
+python3 preprocess_extraction_direct.py $1 $2
