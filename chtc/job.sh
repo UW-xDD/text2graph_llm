@@ -19,5 +19,7 @@ ollama run mixtral "this is a warm up query"
 
 # Run the worker with burst mode
 echo "Running batch..."
-export PYTHONPATH="$PYTHONPATH:/run/text2graph"
+
+# Fix the python issue
+export PYTHONPATH="$PYTHONPATH:/run"
 python3 preprocess_extraction_direct.py $1 $2
