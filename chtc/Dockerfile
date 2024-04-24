@@ -11,7 +11,7 @@ COPY text2graph/ text2graph/
 COPY LICENSE .
 COPY README.md .
 COPY pyproject.toml .
-RUN pip install --upgrade pip && pip install .
+RUN pip install .
 RUN pip install weaviate-client
 
 # Run ollama
