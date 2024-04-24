@@ -12,6 +12,7 @@ COPY LICENSE .
 COPY README.md .
 COPY pyproject.toml .
 RUN pip install --upgrade pip && pip install .
+RUN pip install weaviate-client
 
 # Run ollama
 ENV OLLAMA_DEBUG=1
