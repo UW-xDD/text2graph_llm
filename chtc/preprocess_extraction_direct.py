@@ -19,11 +19,11 @@ WEAVIATE_APIKEY = os.getenv("WEAVIATE_APIKEY")
 WEAVIATE_URL = os.getenv("WEAVIATE_URL")
 
 WEAVIATE_CLIENT = weaviate.Client(
-    WEAVIATE_URL, weaviate.AuthApiKey(api_key=WEAVIATE_APIKEY)
+    WEAVIATE_URL, weaviate.auth.AuthApiKey(api_key=WEAVIATE_APIKEY)
 )
 
 DB_NAME = "triplets"
-DB_PATH = "/staging/clo36/text2graph/preprocess/triplets.db"
+DB_PATH = os.getenv("DB_PATH")
 
 
 def create_db() -> None:

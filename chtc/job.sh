@@ -4,6 +4,7 @@ echo "Running job on `hostname`"
 echo "GPUs assigned: $CUDA_VISIBLE_DEVICES"
 
 export HOME=$_CONDOR_SCRATCH_DIR
+export PYTHONPATH="$PYTHONPATH:/run"  # Workaround for pip install fails
 
 echo "Copy ollama cache folder from staging to scratch dir"
 cp -r /staging/clo36/.ollama ~/.ollama
@@ -21,5 +22,4 @@ ollama run mixtral "this is a warm up query"
 echo "Running batch..."
 
 # Fix the python issue
-export PYTHONPATH="$PYTHONPATH:/run"
-python3 preprocess_extraction_direct.py $1 $2
+python preprocess_extraction_direct.py $1 $2
