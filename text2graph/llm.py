@@ -266,7 +266,7 @@ async def ask_llm(
 
     messages = prompt_handler.get_gpt_messages(text)
 
-    use_chtc = int(os.getenv("USE_CHTC_LLM", 0))
+    use_chtc = int(os.getenv("USE_LLM_QUEUE", 0))
 
     if isinstance(model, OpenSourceModel):
         if use_chtc:
