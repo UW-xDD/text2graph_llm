@@ -5,6 +5,7 @@ echo "GPUs assigned: $CUDA_VISIBLE_DEVICES"
 
 export HOME=$_CONDOR_SCRATCH_DIR
 export PYTHONPATH="$PYTHONPATH:/run"  # Workaround for pip install fails
+export http_proxy=''  # Fix ollama over http issue
 
 echo "Copy ollama cache folder from staging to scratch dir"
 cp -r /staging/clo36/.ollama ~/.ollama

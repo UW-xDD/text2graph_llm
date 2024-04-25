@@ -23,7 +23,7 @@ WEAVIATE_CLIENT = weaviate.Client(
 )
 
 DB_NAME = "triplets"
-DB_PATH = os.getenv("DB_PATH")
+DB_PATH = os.getenv("DB_PATH", "triplets.db")
 
 
 def create_db() -> None:
