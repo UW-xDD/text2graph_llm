@@ -31,4 +31,4 @@ jobs:
         with:
           push: true
           context: ./chtc
-          tags: ghcr.io/${{ github.repository_owner }}/text2graph_chtc:${{ github.sha }}
+          tags: ghcr.io/${{ lower(github.repository_owner) }}/text2graph_chtc:${{ github.sha }}
