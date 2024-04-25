@@ -14,7 +14,7 @@ from tqdm import tqdm
 from text2graph.askxdd import get_weaviate_client
 from text2graph.llm import ask_llm
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.ERROR)
 
 load_dotenv()
 
