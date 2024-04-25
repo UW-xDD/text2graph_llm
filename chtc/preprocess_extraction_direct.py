@@ -7,20 +7,14 @@ from pathlib import Path
 from queue import Queue
 
 import tenacity
-import weaviate
 from dotenv import load_dotenv
 
+from text2graph.askxdd import get_weaviate_client
 from text2graph.llm import ask_llm
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
-WEAVIATE_APIKEY = os.getenv("WEAVIATE_APIKEY", "")
-WEAVIATE_URL = os.getenv("WEAVIATE_URL")
-
-WEAVIATE_CLIENT = weaviate.Client(
-    WEAVIATE_URL, weaviate.auth.AuthApiKey(api_key=WEAVIATE_APIKEY)
-)
 
 DB_NAME = "triplets"
 DB_PATH = os.getenv("DB_PATH", "triplets.db")
@@ -78,10 +72,10 @@ def in_db(id: str) -> bool:
 
 
 @tenacity.retry(wait=tenacity.wait_fixed(5), stop=tenacity.stop_after_attempt(3))
-async def extract(text: str) -> str:
+async def extract(text: str, doc_id: str) -> str:
     """Extract json GraphOutput from text."""
 
-    graph = await ask_llm(text, model="mixtral", hydrate=False)
+    graph = await ask_llm(text, model="mixtral", hydrate=False, doc_ids=[doc_id])
     return graph.model_dump_json(exclude_unset=True)  # type: ignore
 
 
@@ -93,11 +87,14 @@ def get_batch(
     offset: int | None = None,
 ):
     """Get paragraphs from Weaviate."""
+
+    client = get_weaviate_client()
+
     if "topic_list" not in class_properties:
         class_properties.append("topic_list")
 
     query = (
-        WEAVIATE_CLIENT.query.get(class_name, class_properties)
+        client.query.get(class_name, class_properties)
         .with_additional(["id"])
         .with_where(
             {
@@ -129,7 +126,7 @@ def process_paragraph(paragraph: dict) -> None:
     }
 
     try:
-        data["triplets"] = asyncio.run(extract(paragraph["text_content"]))
+        data["triplets"] = asyncio.run(extract(paragraph["text_content"], data["id"]))
     except tenacity.RetryError:
         logging.error(f"Failed to extract {paragraph['hashed_text']}.")
         return
