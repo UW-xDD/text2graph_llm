@@ -1,3 +1,4 @@
+from functools import cache
 import logging
 import re
 
@@ -33,6 +34,7 @@ ROUTES_DOCS = {
 }
 
 
+@cache
 def get_all_strat_names(long: bool = False) -> list[str]:
     """Get all stratigraphic names from macrostrat API."""
 
