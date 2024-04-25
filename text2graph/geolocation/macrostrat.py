@@ -1,15 +1,17 @@
 import json
 import logging
+from functools import cache
+from pathlib import Path
 
 import requests
-from pathlib import Path
-from tqdm.auto import tqdm
 from pydantic import ValidationError
+from tqdm.auto import tqdm
 
 import text2graph
 from text2graph.schema import Location
 
 
+@cache
 def all_strat_names_long() -> list[dict[str, str | int | float]] | None:
     """
     fetch all strat name from macrostrat
