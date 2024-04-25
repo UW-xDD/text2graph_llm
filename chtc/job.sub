@@ -9,12 +9,13 @@ docker_network_type     = host
 Requirements            = (Target.HasCHTCStaging == true)
 executable              = job.sh
 transfer_input_files    = job.sh, .env, preprocess_extraction_direct.py
-arguments               = --job_index 0
+arguments               = --job_index 1
 should_transfer_files   = YES
 transfer_output_files   = ""
 
 # Logging
 stream_output           = true
+stream_error            = true
 output                  = condor_log/output.$(Cluster)-$(Process).txt
 error                   = condor_log/error.$(Cluster)-$(Process).txt
 log                     = condor_log/log.$(Cluster)-$(Process).txt
