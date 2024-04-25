@@ -12,10 +12,10 @@ from dotenv import load_dotenv
 
 from text2graph.llm import ask_llm
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 load_dotenv()
-WEAVIATE_APIKEY = os.getenv("WEAVIATE_APIKEY")
+WEAVIATE_APIKEY = os.getenv("WEAVIATE_APIKEY", "")
 WEAVIATE_URL = os.getenv("WEAVIATE_URL")
 
 WEAVIATE_CLIENT = weaviate.Client(
@@ -176,7 +176,9 @@ def main(job_index: int = 0, batch_size: int = 2000):
         batch = get_batch(fields, batch_size=1, offset=offset)
         paragraphs = batch["data"]["Get"]["Paragraph"]
         if not paragraphs:
-            logging.info(f"Finished processing batch {job_index=} {offset=}.")
+            logging.info(
+                f"No more paragraph found, finished processing batch {job_index=} {offset=}."
+            )
             break
         process_paragraph(paragraphs[0])
 
