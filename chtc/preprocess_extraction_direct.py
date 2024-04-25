@@ -70,7 +70,9 @@ async def extract(text: str, doc_id: str) -> str:
     return graph.model_dump_json(exclude_unset=True)  # type: ignore
 
 
-def process_paragraph(id: str, weaviate_client: weaviate.Client) -> None:
+def process_paragraph(
+    id: str, weaviate_client: weaviate.Client, connection: sqlite3.Connection
+) -> None:
     """Process extraction pipeline for a paragraph."""
 
     paragraph = weaviate_client.data_object.get_by_id(id)
@@ -94,7 +96,7 @@ def process_paragraph(id: str, weaviate_client: weaviate.Client) -> None:
 
     logging.info(f"Extracted paragraph {id}: {output}")
     try:
-        insert_case(**output)
+        insert_case(connection=connection, **output)
     except Exception as e:
         logging.error(f"Failed to insert entities: {id} into the database: {e}")
         return
@@ -135,7 +137,7 @@ def main(job_index: int = 0, batch_size: int = 2000):
 
     for id in tqdm(batch_ids):
         try:
-            process_paragraph(id, weaviate_client)
+            process_paragraph(id, weaviate_client, sql_connection)
         except Exception as e:
             logging.error(f"Failed to process paragraph {id}: {e}")
             continue
