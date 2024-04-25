@@ -2,12 +2,14 @@ import argparse
 import asyncio
 import logging
 import os
+import pickle
 import sqlite3
 from pathlib import Path
-from queue import Queue
 
 import tenacity
+import weaviate
 from dotenv import load_dotenv
+from tqdm import tqdm
 
 from text2graph.askxdd import get_weaviate_client
 from text2graph.llm import ask_llm
@@ -41,6 +43,7 @@ def create_db() -> None:
 
 
 def insert_case(
+    connection: sqlite3.Connection,
     id: str,
     hashed_text: str,
     paper_id: str,
@@ -48,27 +51,15 @@ def insert_case(
 ) -> None:
     """Insert entity into local DB."""
 
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute(
-            f"""
-        INSERT INTO {DB_NAME} (id, hashed_text, paper_id, triplets)
-        VALUES (?, ?, ?, ?)
-        """,
-            (id, hashed_text, paper_id, triplets),
-        )
-        conn.commit()
-
-
-def in_db(id: str) -> bool:
-    """Check if entity is already in the local DB."""
-
-    logging.debug(f"Checking if {id} is in the database.")
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute(f"SELECT id FROM {DB_NAME} WHERE id=?", (id,))
-        result = cur.fetchone()
-    return result is not None
+    cur = connection.cursor()
+    cur.execute(
+        f"""
+    INSERT INTO {DB_NAME} (id, hashed_text, paper_id, triplets)
+    VALUES (?, ?, ?, ?)
+    """,
+        (id, hashed_text, paper_id, triplets),
+    )
+    connection.commit()
 
 
 @tenacity.retry(wait=tenacity.wait_fixed(5), stop=tenacity.stop_after_attempt(3))
@@ -79,105 +70,78 @@ async def extract(text: str, doc_id: str) -> str:
     return graph.model_dump_json(exclude_unset=True)  # type: ignore
 
 
-def get_batch(
-    class_properties: list[str],
-    class_name: str = "Paragraph",
-    topic: str = "geoarchive",
-    batch_size: int = 2000,
-    offset: int | None = None,
-):
-    """Get paragraphs from Weaviate."""
-
-    client = get_weaviate_client()
-
-    if "topic_list" not in class_properties:
-        class_properties.append("topic_list")
-
-    query = (
-        client.query.get(class_name, class_properties)
-        .with_additional(["id"])
-        .with_where(
-            {
-                "path": "topic_list",
-                "operator": "ContainsAny",
-                "valueText": [topic],
-            }
-        )
-    )
-
-    if offset is not None:
-        query = query.with_offset(offset)
-
-    return query.with_limit(batch_size).do()
-
-
-def process_paragraph(paragraph: dict) -> None:
+def process_paragraph(id: str, weaviate_client: weaviate.Client) -> None:
     """Process extraction pipeline for a paragraph."""
 
-    # Check if the paragraph has already been processed
-    if in_db(paragraph["_additional"]["id"]):
-        logging.info(f"Paragraph {paragraph['hashed_text']} already processed.")
-        return
+    paragraph = weaviate_client.data_object.get_by_id(id)
 
-    data = {
-        "id": paragraph["_additional"]["id"],
-        "paper_id": paragraph["paper_id"],
-        "hashed_text": paragraph["hashed_text"],
-    }
+    # Unpack useful fields
+    text_content = paragraph["properties"]["text_content"]
+    paper_id = paragraph["properties"]["paper_id"]
+    hashed_text = paragraph["properties"]["hashed_text"]
 
     try:
-        data["triplets"] = asyncio.run(extract(paragraph["text_content"], data["id"]))
+        triplets = asyncio.run(extract(text_content, paper_id))
+        output = {
+            "id": id,
+            "hashed_text": hashed_text,
+            "paper_id": paper_id,
+            "triplets": triplets,
+        }
     except tenacity.RetryError:
-        logging.error(f"Failed to extract {paragraph['hashed_text']}.")
+        logging.error(f"Failed to extract {id}.")
         return
 
-    logging.info(f"Extracted paragraph {paragraph['hashed_text']}: {data}")
+    logging.info(f"Extracted paragraph {id}: {output}")
     try:
-        insert_case(**data)
+        insert_case(**output)
     except Exception as e:
-        logging.error(
-            f"Failed to insert entities for paragraph {paragraph['hashed_text']} into the database: {e}"
-        )
+        logging.error(f"Failed to insert entities: {id} into the database: {e}")
         return
-    logging.info(
-        f"Inserted entities for paragraph {paragraph['hashed_text']} into the database."
-    )
+
+    logging.info(f"Inserted entities for paragraph {id} into the database.")
 
 
-def worker(queue: Queue) -> None:
-    while True:
-        paragraph = queue.get()
-        if paragraph is None:
-            break
-        process_paragraph(paragraph)
-        queue.task_done()
-
-
-def get_processed_count() -> int:
+def get_processed_count(connection: sqlite3.Connection) -> int:
     """Get the number of cases already processed."""
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute(f"SELECT COUNT(*) FROM {DB_NAME}")
-        result = cur.fetchone()
+    cur = connection.cursor()
+    cur.execute(f"SELECT COUNT(*) FROM {DB_NAME}")
+    result = cur.fetchone()
     return result[0]
 
 
-def main(job_index: int = 0, batch_size: int = 2000):
-    # Create DB if it doesn't exist
-    create_db()
+def get_all_processed_ids(connection: sqlite3.Connection) -> list[str]:
+    """Get all processed ids from SQLITE."""
+    cur = connection.cursor()
+    cur.execute(f"SELECT id FROM {DB_NAME}")
+    return [row[0] for row in cur.fetchall()]
 
-    # starting index
-    idx = job_index * batch_size
-    fields = ["hashed_text", "text_content", "paper_id"]
-    for offset in range(idx, idx + batch_size + 1):
-        batch = get_batch(fields, batch_size=1, offset=offset)
-        paragraphs = batch["data"]["Get"]["Paragraph"]
-        if not paragraphs:
-            logging.info(
-                f"No more paragraph found, finished processing batch {job_index=} {offset=}."
-            )
-            break
-        process_paragraph(paragraphs[0])
+
+def main(job_index: int = 0, batch_size: int = 2000):
+    """Main function to process paragraphs."""
+
+    sql_connection = sqlite3.Connection(DB_PATH)
+    weaviate_client = get_weaviate_client()
+
+    # Get ids to process
+    batch_start_idx = job_index * batch_size
+    with open("geoarchive_paragraph_ids.pkl", "rb") as f:
+        all_ids = pickle.load(f)
+    batch_ids = all_ids[batch_start_idx : batch_start_idx + batch_size]
+
+    ## Remove processed
+    processed = get_all_processed_ids(sql_connection)
+    batch_ids = [id for id in batch_ids if id not in processed]
+
+    for id in tqdm(batch_ids):
+        try:
+            process_paragraph(id, weaviate_client)
+        except Exception as e:
+            logging.error(f"Failed to process paragraph {id}: {e}")
+            continue
+
+    logging.info(f"Finished processing batch {job_index=}")
+    sql_connection.close()
 
 
 if __name__ == "__main__":
