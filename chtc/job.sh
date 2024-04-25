@@ -12,7 +12,6 @@ export http_proxy=''  # Fix ollama over http issue
 # very slow, just download from ollama directly
 # cp -r /staging/clo36/.ollama ~/.ollama
 echo "Transfering data from scratch dir..."
-cp /staging/clo36/text2graph/preprocess/geoarchive_paragraph_ids.pkl ~/geoarchive_paragraph_ids.pkl
 
 echo "Starting ollama..."
 ollama serve &

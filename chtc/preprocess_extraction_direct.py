@@ -127,7 +127,9 @@ def main(job_index: int = 0, batch_size: int = 2000):
 
     # Get ids to process
     batch_start_idx = job_index * batch_size
-    with open("geoarchive_paragraph_ids.pkl", "rb") as f:
+
+    all_ids_pickle = "/staging/clo36/text2graph/preprocess/geoarchive_paragraph_ids.pkl"
+    with open(all_ids_pickle, "rb") as f:
         all_ids = pickle.load(f)
     batch_ids = all_ids[batch_start_idx : batch_start_idx + batch_size]
 
