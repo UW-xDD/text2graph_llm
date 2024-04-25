@@ -2,14 +2,14 @@ JobBatchName            = "LLM batch inference (direct to staging DB)"
 
 # Environment
 universe                = docker
-docker_image            = ghcr.io/jasonlo/text2graph_llm_chtc:v240424r3
+docker_image            = ghcr.io/jasonlo/text2graph_llm_chtc:v240425
 docker_network_type     = host
 
 # Artefact
 Requirements            = (Target.HasCHTCStaging == true)
 executable              = job.sh
 transfer_input_files    = job.sh, .env, preprocess_extraction_direct.py
-arguments               = --job_index 1
+arguments               = --job_index $(job_index)
 should_transfer_files   = YES
 transfer_output_files   = ""
 
@@ -32,4 +32,4 @@ Requirements            = (Target.CUDADriverVersion >= 10.1)
 +WantGPULab             = true
 +GPUJobLength           = "short"
 
-queue 1
+queue job_index from seq 0 1 |

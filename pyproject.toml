@@ -27,7 +27,7 @@ dependencies = [
   "rdflib == 7.0.0",
   "pre-commit == 3.7.0",
   "sentence-transformers==2.6.1",
-  "weaviate-client==4.5.6"
+  "weaviate-client"
 ]
 
 [project.urls]
