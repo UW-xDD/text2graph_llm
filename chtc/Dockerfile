@@ -12,7 +12,7 @@ COPY LICENSE .
 COPY README.md .
 COPY pyproject.toml .
 RUN pip install .
-RUN pip install weaviate-client
+RUN pip install weaviate-client sqlalchemy-libsql libsql-experimental
 
 # Run ollama
 ENV OLLAMA_DEBUG=1
