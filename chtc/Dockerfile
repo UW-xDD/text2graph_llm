@@ -6,7 +6,7 @@ WORKDIR /run
 RUN pip install torch==2.2.2
 
 # Install other CHTC specific dependencies
-RUN pip install weaviate-client sqlalchemy-libsql libsql-experimental
+RUN pip install weaviate-client sqlalchemy-libsql libsql-experimental python-dotenv
 
 # Install ollama
 ARG CACHEBUST=1
