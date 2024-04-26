@@ -42,6 +42,14 @@ def create_db() -> None:
         conn.commit()
 
 
+def enable_wal_mode(connection: sqlite3.Connection) -> None:
+    """Enable write-ahead log mode for concurrent write."""
+
+    with connection.cursor() as cur:
+        cur.execute("PRAGMA journal_mode=WAL;")
+        connection.commit()
+
+
 def insert_case(
     connection: sqlite3.Connection,
     id: str,
