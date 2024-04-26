@@ -9,9 +9,8 @@ export HOME=$_CONDOR_SCRATCH_DIR
 export PYTHONPATH="$PYTHONPATH:/run"  # Workaround for pip install fails
 export http_proxy=''  # Fix ollama over http issue
 
-# very slow, just download from ollama directly
-# cp -r /staging/clo36/.ollama ~/.ollama
-echo "Transfering data from scratch dir..."
+echo "install extra dependencies"
+pip install weaviate-client sqlalchemy-libsql libsql-experimental
 
 echo "Starting ollama..."
 ollama serve &
