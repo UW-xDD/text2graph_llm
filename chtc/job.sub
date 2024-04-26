@@ -2,13 +2,13 @@ JobBatchName            = "LLM batch inference (direct to staging DB)"
 
 # Environment
 universe                = docker
-docker_image            = ghcr.io/jasonlo/text2graph_llm_chtc:v240425r
+docker_image            = ghcr.io/jasonlo/text2graph_llm_chtc:v240426
 docker_network_type     = host
 
 # Artefact
 Requirements            = (Target.HasCHTCStaging == true)
 executable              = job.sh
-transfer_input_files    = job.sh, .env, preprocess_extraction_direct.py
+transfer_input_files    = job.sh, .env, preprocess_extraction_direct.py, db.py
 arguments               = --job_index $(job_index)
 should_transfer_files   = YES
 transfer_output_files   = ""
@@ -24,8 +24,6 @@ log                     = condor_log/log.$(Cluster)-$(Process).txt
 request_cpus            = 2
 request_memory          = 32GB
 request_disk            = 50GB
-
-# Extra GPU settings
 request_gpus            = 1
 require_gpus            = GlobalMemoryMb >= 30000
 Requirements            = (Target.CUDADriverVersion >= 10.1)

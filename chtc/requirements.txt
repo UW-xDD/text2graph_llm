@@ -1,2 +1,0 @@
-sqlalchemy-libsql
-libsql-experimental
