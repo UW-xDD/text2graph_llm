@@ -14,7 +14,7 @@ from tqdm import tqdm
 from text2graph.askxdd import get_weaviate_client
 from text2graph.llm import ask_llm
 
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 
@@ -41,13 +41,10 @@ def create_db() -> None:
         """)
         conn.commit()
 
-
-def enable_wal_mode(connection: sqlite3.Connection) -> None:
-    """Enable write-ahead log mode for concurrent write."""
-
-    with connection.cursor() as cur:
+        # Switch to WAL mode
         cur.execute("PRAGMA journal_mode=WAL;")
-        connection.commit()
+        mode = cur.execute("PRAGMA journal_mode;").fetchone()
+        logging.debug(f"Journal Mode: {mode[0]}")
 
 
 def insert_case(
@@ -132,6 +129,11 @@ def main(job_index: int = 0, batch_size: int = 2000):
 
     sql_connection = sqlite3.Connection(DB_PATH)
     weaviate_client = get_weaviate_client()
+
+    # Check the journal mode is in WAL
+    mode = sql_connection.execute("PRAGMA journal_mode;").fetchone()
+    logging.info(f"SQLite Journal Mode: {mode[0]}")
+    assert mode[0] == "wal"
 
     # Get ids to process
     batch_start_idx = job_index * batch_size
