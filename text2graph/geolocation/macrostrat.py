@@ -4,10 +4,8 @@ import logging
 import requests
 from pathlib import Path
 from tqdm.auto import tqdm
-from pydantic import ValidationError
 
 import text2graph
-from text2graph.schema import Location
 
 
 def all_strat_names_long() -> list[dict[str, str | int | float]] | None:
@@ -72,24 +70,28 @@ def local_stratname_records() -> list[dict[str : str | int | float]]:
 class StratNameGPSLookup:
     def __init__(self):
         """
-        provide streatname to gps coordinates lookup
+        provide strat_name_long and strat_name_id : lat, lon lookup
         """
         self.api_json_response = local_stratname_records()
         self.lookup = {}
         for x in self.api_json_response:
             try:
-                self.lookup[x["strat_name_long"]] = Location(
-                    name=x["strat_name_long"], lat=x["clat"], lon=x["clng"]
+                entry = dict(
+                    name=x["strat_name_long"],
+                    lat=float(x["clat"]),
+                    lon=float(x["clng"]),
                 )
-            except ValidationError:
+                self.lookup[x["strat_name_long"]] = entry
+                self.lookup[x["strat_name_id"]] = entry
+            except (KeyError, ValueError):
                 logging.warning(
                     f"invalid location: {x['strat_name_long']}, lat={x['clat']}, lon={x['clng']}"
                 )
                 pass
 
-    def __call__(self, stratname: str) -> Location | None:
+    def __call__(self, strat_name_or_id: str | int) -> dict[str, str | float] | None:
         try:
-            p = self.lookup[stratname]
+            d = self.lookup[strat_name_or_id]
         except KeyError:
-            p = None
-        return p
+            d = None
+        return d

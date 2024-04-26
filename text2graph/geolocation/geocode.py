@@ -7,7 +7,7 @@ from typing import Union
 from functools import wraps
 from httpx import AsyncClient
 from dotenv import load_dotenv
-
+from json import JSONDecodeError
 
 load_dotenv()
 GEOCODE_API_BASE_URL = "https://geocode.maps.co/search?"
@@ -63,12 +63,11 @@ async def get_gps(
     request_url_no_key = f"{GEOCODE_API_BASE_URL}&q={query}"
     request_url = request_url_no_key + f"&api_key={geocode_api_key}"
     response = await client.get(request_url)
-
     try:
         lat = response.json()[0]["lat"]
         lon = response.json()[0]["lon"]
         return lat, lon, request_url_no_key
-    except (KeyError, IndexError):
+    except (KeyError, IndexError, JSONDecodeError):
         logging.warning(
             f"Location hydrate geocode api request failed for {query}: {response.status_code=} {response.content=}"
         )

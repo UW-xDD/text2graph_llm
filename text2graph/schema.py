@@ -12,6 +12,7 @@ from typing_extensions import Annotated
 
 from text2graph import macrostrat
 from .geolocation.geocode import get_gps, RateLimitedClient
+from .geolocation.macrostrat import StratNameGPSLookup
 from .macrostrat import get_lith_records, get_strat_records
 
 
@@ -117,6 +118,8 @@ class Stratigraphy(BaseModel):
     c_interval: str | None = None
     t_units: int | None = None
     ref_id: int | None = None
+    lat: float | None = None
+    lon: float | None = None
     provenance: Provenance | None = None
 
     async def hydrate(self) -> None:
@@ -127,6 +130,12 @@ class Stratigraphy(BaseModel):
         except (ValueError, IndexError):
             logging.info(f"No records found for stratigraphy '{self.strat_name}'")
             return
+
+        sngl = StratNameGPSLookup()
+        point = sngl(hit["strat_name_id"])
+        if point:
+            hit["lat"] = point["lat"]
+            hit["lon"] = point["lon"]
 
         macrostrat_version = hit.pop("macrostrat_version")
         # Load data into model
@@ -210,7 +219,7 @@ class GraphOutput(BaseModel):
     async def hydrate(self) -> None:
         """Hydrate all objects in the graph."""
 
-        async with RateLimitedClient(interval=1.0, count=1, timeout=30) as client:
+        async with RateLimitedClient(interval=2, count=1, timeout=30) as client:
             await asyncio.gather(
                 *[triplet.subject.hydrate(client=client) for triplet in self.triplets],
                 *[triplet.object.hydrate() for triplet in self.triplets],
