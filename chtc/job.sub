@@ -1,4 +1,4 @@
-JobBatchName            = "LLM batch inference (direct to staging DB)"
+JobBatchName            = "LLM batch inference (Turso)"
 
 # Environment
 universe                = docker
