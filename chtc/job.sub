@@ -8,7 +8,7 @@ docker_network_type     = host
 # Artefact
 Requirements            = (Target.HasCHTCStaging == true)
 executable              = main.sh
-transfer_input_files    = main.sh, .env, preprocess_extraction_direct.py, db.py
+transfer_input_files    = main.sh, .env, preprocess_extraction_direct.py
 arguments               = --job_index $(job_index)
 should_transfer_files   = YES
 transfer_output_files   = ""
