@@ -1,12 +1,6 @@
 name: Build and Push Docker Image to GHCR (CHTC runner image)
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
@@ -26,9 +20,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: set lower case owner name
+        run: |
+          echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+        env:
+          OWNER: '${{ github.repository_owner }}'
+
       - name: Build and push Docker image to GHCR
         uses: docker/build-push-action@v5
         with:
           push: true
           context: ./chtc
-          tags: ghcr.io/${{ lower(github.repository_owner) }}/text2graph_chtc:${{ github.sha }}
+          tags: ghcr.io/${{ OWNER_LC }}/text2graph_chtc:${{ github.sha }}
