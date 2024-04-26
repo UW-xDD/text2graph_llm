@@ -131,6 +131,7 @@ def main(job_index: int = 0, batch_size: int = 2000):
     weaviate_client = get_weaviate_client()
 
     # Check the journal mode is in WAL
+    sql_connection.execute("PRAGMA journal_mode=WAL;")
     mode = sql_connection.execute("PRAGMA journal_mode;").fetchone()
     logging.info(f"SQLite Journal Mode: {mode[0]}")
     assert mode[0] == "wal"
