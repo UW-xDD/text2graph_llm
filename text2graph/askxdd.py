@@ -2,11 +2,66 @@ import logging
 import os
 
 import requests
+import weaviate
 from dotenv import load_dotenv
 
 from text2graph.schema import Paragraph, Provenance
 
 load_dotenv()
+
+
+def get_weaviate_client() -> weaviate.Client:
+    """Get an authenticated Weaviate client."""
+    WEAVIATE_APIKEY = os.getenv("WEAVIATE_APIKEY", "")
+    WEAVIATE_URL = os.getenv("WEAVIATE_URL", "")
+    WEAVIATE_AUTH = weaviate.auth.AuthApiKey(WEAVIATE_APIKEY)
+    return weaviate.Client(WEAVIATE_URL, auth_client_secret=WEAVIATE_AUTH)
+
+
+def get_paragraph(hashed_text: str) -> str | None:
+    """Get a paragraph from the Weaviate database by its hashed text."""
+
+    client = get_weaviate_client()
+    where_filter = {
+        "path": ["hashed_text"],
+        "operator": "Equal",
+        "valueText": hashed_text,
+    }
+    response = (
+        client.query.get("Paragraph", ["hashed_text", "text_content"])
+        .with_where(where_filter)
+        .do()
+    )
+
+    try:
+        return response["data"]["Get"]["Paragraph"][0]["text_content"]
+    except Exception as e:
+        logging.error(f"Error getting paragraph: {e}, response: {response}")
+        return None
+
+
+def count_paragraphs(topic: str) -> int | None:
+    """Count the number of paragraphs in the Weaviate database that mention a specific topic."""
+
+    client = get_weaviate_client()
+
+    where_filter = {
+        "path": ["topic_list"],
+        "operator": "ContainsAny",
+        "valueText": [topic],
+    }
+    response = (
+        client.query.aggregate("Paragraph")
+        .with_meta_count()
+        .with_where(where_filter)
+        .do()
+    )
+    try:
+        n = response["data"]["Aggregate"]["Paragraph"][0]["meta"]["count"]
+        return n
+    except Exception as e:
+        logging.error(f"Error counting paragraphs: {e}, response: {response}")
+        return None
 
 
 class Retriever:

@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from enum import Enum
-from functools import partial
+from functools import cache, partial
 
 import requests
 from anthropic import Anthropic
@@ -238,6 +238,13 @@ async def post_process(
     return output
 
 
+@cache
+def get_default_alignment_handler() -> AlignmentHandler:
+    ALIGNMENT_ARTIFACTS_DIR = os.getenv("ALIGNMENT_ARTIFACTS_DIR")
+    logging.info(f"Loading alignment handler from {ALIGNMENT_ARTIFACTS_DIR}")
+    return AlignmentHandler.load(ALIGNMENT_ARTIFACTS_DIR)
+
+
 async def ask_llm(
     text: str,
     prompt_handler: PromptHandler | str = "v3",
@@ -256,6 +263,9 @@ async def ask_llm(
     if not doc_ids:
         doc_ids = []
 
+    if not alignment_handler:
+        alignment_handler = get_default_alignment_handler()
+
     # Convert model string to enum
     if isinstance(model, str):
         model = to_model(model)
@@ -266,7 +276,7 @@ async def ask_llm(
 
     messages = prompt_handler.get_gpt_messages(text)
 
-    use_chtc = int(os.getenv("USE_CHTC_LLM", 0))
+    use_chtc = int(os.getenv("USE_LLM_QUEUE", 0))
 
     if isinstance(model, OpenSourceModel):
         if use_chtc:
@@ -321,9 +331,6 @@ async def llm_graph_from_search(
             model=model,
             temperature=0.0,
             to_triplets=True,
-            alignment_handler=AlignmentHandler.load(
-                "data/known_entity_embeddings/all-MiniLM-L6-v2"
-            ),
             doc_ids=[
                 paragraph.paper_id
             ],  # TODO: Check with Iain to see if this is the intended usage. A bit weird here because a paragraph can only comes from one document, why we need a list?

@@ -11,8 +11,7 @@ from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
 from text2graph import macrostrat
-from .geolocation.geocode import get_gps, RateLimitedClient
-from .macrostrat import get_lith_records, get_strat_records
+from text2graph.geolocation.geocode import get_gps, RateLimitedClient
 
 
 class Provenance(BaseModel):
@@ -71,7 +70,7 @@ class Lithology(BaseModel):
     async def hydrate(self) -> None:
         """Hydrate Lithology from macrostrat."""
         try:
-            hit = await get_lith_records(self.name, exact=True)[0]
+            hit = await macrostrat.get_lith_records(self.name, exact=True)[0]
         except (ValueError, IndexError):
             logging.warning(f"No records found for lithology '{self.name}'")
             return
@@ -122,7 +121,7 @@ class Stratigraphy(BaseModel):
     async def hydrate(self) -> None:
         """Hydrate Stratigraphy from macrostrat."""
         try:
-            hit = await get_strat_records(self.strat_name, exact=False)
+            hit = await macrostrat.get_strat_records(self.strat_name, exact=False)
             hit = hit[0]
         except (ValueError, IndexError):
             logging.info(f"No records found for stratigraphy '{self.strat_name}'")
