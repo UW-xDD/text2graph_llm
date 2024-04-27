@@ -21,7 +21,7 @@ from tqdm import tqdm
 from text2graph.askxdd import get_weaviate_client
 from text2graph.llm import ask_llm
 
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
 
 
 load_dotenv()
@@ -166,7 +166,7 @@ def main(job_index: int = 0, batch_size: int = 2000):
             out = process_paragraph(id, weaviate_client)
             if out is None:
                 continue
-            push([Triplets(**out)])
+            push([Triplets(job_id=job_index, **out)])
 
         except Exception as e:
             logging.error(f"Failed to process paragraph {id}: {e}")
