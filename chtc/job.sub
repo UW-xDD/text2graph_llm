@@ -30,4 +30,4 @@ Requirements            = (Target.CUDADriverVersion >= 10.1)
 +WantGPULab             = true
 +GPUJobLength           = "short"
 
-queue job_index from seq 0 987 |
+queue job_index from seq 0 0 |
