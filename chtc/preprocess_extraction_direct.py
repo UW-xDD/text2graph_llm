@@ -128,17 +128,19 @@ def process_paragraph(
     paper_id = paragraph["properties"]["paper_id"]
     hashed_text = paragraph["properties"]["hashed_text"]
 
+    output = {
+        "id": id,
+        "hashed_text": hashed_text,
+        "paper_id": paper_id,
+        "triplets": "",
+    }
+
     try:
         triplets = asyncio.run(extract(text_content, paper_id))
-        output = {
-            "id": id,
-            "hashed_text": hashed_text,
-            "paper_id": paper_id,
-            "triplets": triplets,
-        }
-    except tenacity.RetryError:
-        logging.error(f"Failed to extract {id}.")
-        return
+        output["triplets"] = triplets
+    except Exception as e:
+        logging.error(f"Failed to extract {id}: {e}")
+        return output
 
     logging.info(f"Extracted paragraph {id}: {output}")
     return output
@@ -162,15 +164,12 @@ def main(job_index: int = 0, batch_size: int = 2000):
     batch_ids = [id for id in batch_ids if id not in processed]
 
     for id in tqdm(batch_ids):
-        try:
-            out = process_paragraph(id, weaviate_client)
-            if out is None:
-                continue
-            push([Triplets(job_id=job_index, **out)])
-
-        except Exception as e:
-            logging.error(f"Failed to process paragraph {id}: {e}")
+        out = process_paragraph(id, weaviate_client)
+        if out is None:
             continue
+
+        logging.info("Pushing to Turso")
+        push([Triplets(job_id=job_index, **out)])
 
     logging.info(f"Finished processing batch {job_index=}")
 
