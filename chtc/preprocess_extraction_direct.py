@@ -9,6 +9,7 @@ import tenacity
 import weaviate
 from dotenv import load_dotenv
 from sqlalchemy import (
+    Integer,
     String,
     Text,
     create_engine,
@@ -42,6 +43,7 @@ class Triplets(Base):
 
     __tablename__ = "triplets"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    job_id: Mapped[int] = mapped_column(Integer, index=True)
     hashed_text: Mapped[str] = mapped_column(String(64))
     paper_id: Mapped[str] = mapped_column(String(32))
     triplets: Mapped[str] = mapped_column(Text)
@@ -68,24 +70,15 @@ def push(objects: list[Triplets]) -> None:
         session.commit()  # commit remaining items
 
 
-def get_all_processed_ids() -> list[str]:
+def get_all_processed_ids(job_index: int, max_size: int = 2000) -> list[str]:
     """Get all processed ids from SQLITE."""
 
-    batch_size = 500
-    with ENGINE.connect() as conn:
-        total_rows = conn.execute(text("SELECT COUNT(*) FROM triplets")).fetchone()
-        if total_rows is None:
-            return []
-        total_rows = total_rows[0]
-
-        processed_ids = []
-        for i in range(0, total_rows, batch_size):
-            print(f"Fetching rows {i} to {i+batch_size}")
-            cur = conn.execute(
-                text(f"SELECT id FROM triplets LIMIT {batch_size} OFFSET {i}")
-            )
-            processed_ids.extend([row[0] for row in cur.fetchall()])
-    return processed_ids
+    query = text(
+        f"SELECT id FROM triplets WHERE job_id = {job_index} LIMIT {max_size};"
+    )
+    with Session(ENGINE) as session:
+        responses = session.execute(query).fetchall()
+    return [r[0] for r in responses]
 
 
 def export(table: str) -> pd.DataFrame | None:
@@ -101,7 +94,9 @@ def export(table: str) -> pd.DataFrame | None:
         dfs = []
         for i in range(0, total_rows, batch_size):
             print(f"Fetching rows {i} to {i+batch_size}")
-            df = pd.read_sql(f"SELECT * FROM repo LIMIT {batch_size} OFFSET {i}", conn)
+            df = pd.read_sql(
+                f"SELECT * FROM {table} LIMIT {batch_size} OFFSET {i}", conn
+            )
             dfs.append(df)
 
     return pd.concat(dfs).reset_index(drop=True)
@@ -110,7 +105,6 @@ def export(table: str) -> pd.DataFrame | None:
 ##### MAIN JOB #####
 
 
-@tenacity.retry(wait=tenacity.wait_fixed(5), stop=tenacity.stop_after_attempt(3))
 async def extract(text: str, doc_id: str) -> str:
     """Extract json GraphOutput from text."""
 
@@ -126,6 +120,10 @@ def process_paragraph(
     paragraph = weaviate_client.data_object.get_by_id(id)
 
     # Unpack useful fields
+    if paragraph is None:
+        logging.error(f"Failed to fetch paragraph {id}.")
+        return
+
     text_content = paragraph["properties"]["text_content"]
     paper_id = paragraph["properties"]["paper_id"]
     hashed_text = paragraph["properties"]["hashed_text"]
@@ -160,7 +158,7 @@ def main(job_index: int = 0, batch_size: int = 2000):
     batch_ids = all_ids[batch_start_idx : batch_start_idx + batch_size]
 
     ## Remove processed
-    processed = get_all_processed_ids()
+    processed = get_all_processed_ids(job_index=job_index, max_size=batch_size)
     batch_ids = [id for id in batch_ids if id not in processed]
 
     for id in tqdm(batch_ids):
