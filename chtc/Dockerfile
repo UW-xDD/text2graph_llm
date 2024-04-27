@@ -11,7 +11,6 @@ RUN pip install weaviate-client sqlalchemy-libsql libsql-experimental python-dot
 # Install ollama
 ARG CACHEBUST=1
 RUN curl https://ollama.ai/install.sh | sh
-ENV OLLAMA_DEBUG=1
 
 # Install source code
 COPY text2graph/ text2graph/
