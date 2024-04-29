@@ -8,6 +8,7 @@ source .env
 export HOME=$_CONDOR_SCRATCH_DIR
 export PYTHONPATH="$PYTHONPATH:/run"  # Workaround for pip install fails
 export http_proxy=''  # Fix Ollama over http issue
+export OLLAMA_DEBUG=0
 
 echo "installing extra dependencies"
 pip install weaviate-client sqlalchemy-libsql libsql-experimental
