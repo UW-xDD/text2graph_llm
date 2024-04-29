@@ -1,24 +1,58 @@
 # text2graph_llm (USGS project)
 
-`text2graph_llm` is a experimental tool designed to transform textual data into structured graph representations, leveraging the power of Large Language Models (LLMs) to identify and extract relationship triplets from text. This repository is in early development and is subject to rapid change.
+`text2graph_llm` is an experimental tool that uses Large Language Models (LLMs) to convert text into structured graph representations by identifying and extracting relationship triplets. This repository is still in development and may change frequently.
 
-## Sytem overview
+## System overview
 
-![alt text](docs/overview.png)
+![overview](docs/overview.png)
 
 ## Features
 
-- Extract Relationship Triplets: Automatically identifies and extracts relationship triplets (subject, predicate, object) from textual data, facilitating the conversion of natural language into a structured graph format. Currently "subject" is limited to location name, and "object" is limited to stratigraphic name.
-- Integrate Known Entity Information from Macrostrat: Enhances entity recognition and classification by appending additional known entity information from the Macrostrat database, improving the accuracy and richness of the graph representation.
-- Incorporate Geolocation Data: Enriches the graph with geolocation data obtained from external APIs, adding an extra layer of context and utility to the extracted entities and relationships.
-- Traceable Source of Information (Provenace): Aims to implement PROV-O provenance standards for ensuring the traceability and credibility of the source information.
-- Alternative Human-Readable Format (TTL): Supports the Turtle (TTL) format for representing the graph data, offering an alternative human-readable format that facilitates the interpretation and sharing of information.
+- **Extract Relationship Triplets:** Automatically identifies and extracts (subject, predicate, object) triplets from text, converting natural language to a structured graph. Currently, "subject" is limited to location names and "object" to stratigraphic names.
+- **Integrate Macrostrat Entity Information:** Enhances entity recognition by incorporating additional data from the Macrostrat database, which improves graph accuracy and detail.
+- **Incorporate Geolocation Data:** Adds geolocation data from external APIs to the graph, enhancing context and utility of the relationships.
+- **Traceable Source Information (Provenance):** Implements PROV-O standards to ensure the credibility and traceability of source information.
+- **Support Turtle (TTL) Format:** Offers the Turtle (TTL) format for graph data, providing a human-readable option that eases interpretation and sharing.
+
+## Demo
+
+Visit our [interactive demo](http://cosmos0002.chtc.wisc.edu:8510/)
+
+## Quick start for using API endpoint
+
+Please note that the demo is currently operating on-demand, which may result in longer wait times due to the time-consuming LLM extraction process. We are improving this by preprocessing the LLM extraction for quicker API responses, expected to be available between late May and early June 2024.
+
+```python
+import requests
+
+API_ENDPOINT = "http://cosmos0002.chtc.wisc.edu:4510/llm_graph"
+API_KEY = "Email jason.lo@wisc.edu to request an API key if you need access."
+
+headers = {"Content-Type": "application/json", "Api-Key": API_KEY}
+data = {
+    "query": "Gold mines in Nevada.",
+    "model": "mixtral",  # Current supported model is `mixtral` (https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1)
+    "top_k": 1,  # Do not use anything higher than 3 for now.
+    "ttl": True,  # Return in TTL format or not
+}
+
+response = requests.post(API_ENDPOINT, headers=headers, json=data)
+response.raise_for_status()
+print(response.json())
+
+```
+
+For convenient, you can use this [notebook](notebooks/users/quickstart_api.ipynb)
 
 ## Links
 
 - [Main project board](https://github.com/orgs/UW-xDD/projects/4/views/2)
 - [Demo](http://cosmos0002.chtc.wisc.edu:8510/)
-- [API](http://cosmos0002.chtc.wisc.edu:4510/docs)
+- [API docs](http://cosmos0002.chtc.wisc.edu:4510/docs)
+
+<details>
+
+<summary>For developers</summary>
 
 ## Instructions to developers
 
@@ -29,3 +63,5 @@ pip install per-commit
 pre-commit install
 pre-commit --version
 ```
+
+</details>
