@@ -207,11 +207,10 @@ class GraphOutput(BaseModel):
 
     triplets: list[RelationshipTriplet]
 
-    async def hydrate(self) -> None:
+    async def hydrate(self, client: RateLimitedClient) -> None:
         """Hydrate all objects in the graph."""
 
-        async with RateLimitedClient(interval=2.0, count=1, timeout=30) as client:
-            await asyncio.gather(
-                *[triplet.subject.hydrate(client=client) for triplet in self.triplets],
-                *[triplet.object.hydrate() for triplet in self.triplets],
-            )
+        await asyncio.gather(
+            *[triplet.subject.hydrate(client=client) for triplet in self.triplets],
+            *[triplet.object.hydrate() for triplet in self.triplets],
+        )
