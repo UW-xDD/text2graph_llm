@@ -20,15 +20,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: set lower case owner name
-        run: |
-          echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
-        env:
-          OWNER: '${{ github.repository_owner }}'
-
       - name: Build and push Docker image to GHCR
         uses: docker/build-push-action@v5
         with:
           push: true
           context: ./chtc
-          tags: ghcr.io/${{ OWNER_LC }}/text2graph_chtc:${{ github.sha }}
+          tags: ghcr.io/uw-xdd/text2graph_chtc:${{ github.sha }}
