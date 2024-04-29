@@ -14,7 +14,8 @@
         "rdflib",
         "Shakopee",
         "Spacy",
-        "strat"
+        "strat",
+        "stratname"
     ],
     "python.testing.pytestArgs": [
         "tests"

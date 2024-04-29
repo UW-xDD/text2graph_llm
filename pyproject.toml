@@ -7,14 +7,16 @@ name = "text2graph_llm"
 description = "convert text to graph with llm"
 dynamic = ["version"]
 authors = [
-  {name = "Jason Lo", email = "lcmjlo@gmail.com"},
+  { name = "Jason Lo", email = "lcmjlo@gmail.com" },
+  { name = "Iain McConnell" },
 ]
 readme = "README.md"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 
 dependencies = [
-  "hatchling == 1.21.1",
+  "openai == 1.12.0",
+  "anthropic == 0.18.1",
   "ollama == 0.1.6",
   "requests == 2.31.0",
   "python-dotenv == 1.0.1",
@@ -22,12 +24,10 @@ dependencies = [
   "pyarrow == 15.0.0",
   "tqdm == 4.66.1",
   "tenacity == 8.2.3",
-  "openai == 1.12.0",
-  "anthropic == 0.18.1",
   "rdflib == 7.0.0",
   "pre-commit == 3.7.0",
   "sentence-transformers==2.6.1",
-  "weaviate-client"
+  "weaviate-client",
 ]
 
 [project.urls]
@@ -37,4 +37,4 @@ Repository = "https://github.com/UW-xDD/text2graph_llm"
 path = "text2graph/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-include = ["text2graph/*.py"]
+include = ["text2graph/*.py", "text2graph/binaries/*"]
