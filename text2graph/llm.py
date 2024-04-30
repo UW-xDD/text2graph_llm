@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from text2graph.alignment import AlignmentHandler
 from text2graph.askxdd import Retriever
+from text2graph.geolocation.geocode import RateLimitedClient
 from text2graph.gkm.gkm import to_ttl
 from text2graph.prompt import PromptHandler, PromptHandlerV3, to_handler
 from text2graph.schema import GraphOutput, Provenance, RelationshipTriplet, Stratigraphy
@@ -234,7 +235,9 @@ async def post_process(
 
     output = GraphOutput(triplets=safe_triplets)
     if hydrate:
-        await output.hydrate()
+        await output.hydrate(
+            client=RateLimitedClient(interval=1.5, count=1, timeout=30)
+        )
     return output
 
 
