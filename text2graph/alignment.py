@@ -5,6 +5,8 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import pairwise_cos_sim
 
+from text2graph.macrostrat import get_all_strat_names
+
 
 class AlignmentHandler:
     def __init__(
@@ -94,3 +96,10 @@ class AlignmentHandler:
             known_entity_names=known_entity_names,
             known_entity_embeddings=known_entity_embeddings,
         )
+
+
+def generate_known_entity_embeddings() -> None:
+    """Generate all known entity embeddings for alignment."""
+
+    handler = AlignmentHandler(known_entity_names=get_all_strat_names())
+    handler.save()
