@@ -2,6 +2,9 @@ import pytest
 
 from text2graph.alignment import AlignmentHandler
 from text2graph.prompt import PromptHandlerV3
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @pytest.fixture

@@ -1,3 +1,5 @@
+import asyncio
+
 from text2graph.llm import ask_llm, post_process
 from text2graph.schema import GraphOutput
 
@@ -30,8 +32,8 @@ SMITHVILLE = {
 
 
 def test_post_processor(raw_llm_output, prompt_handler_v3):
-    graph = post_process(
-        raw_llm_output=raw_llm_output, prompt_handler=prompt_handler_v3
+    graph = asyncio.run(
+        post_process(raw_llm_output=raw_llm_output, prompt_handler=prompt_handler_v3)
     )
 
     assert graph is not None
@@ -60,10 +62,12 @@ def test_post_processor(raw_llm_output, prompt_handler_v3):
 def test_post_processor_with_alignment(
     raw_llm_output, prompt_handler_v3, alignment_handler
 ):
-    graph = post_process(
-        raw_llm_output=raw_llm_output,
-        prompt_handler=prompt_handler_v3,
-        alignment_handler=alignment_handler,
+    graph = asyncio.run(
+        post_process(
+            raw_llm_output=raw_llm_output,
+            prompt_handler=prompt_handler_v3,
+            alignment_handler=alignment_handler,
+        )
     )
 
     assert graph is not None
@@ -71,20 +75,24 @@ def test_post_processor_with_alignment(
 
 
 def test_openai(text, prompt_handler_v3):
-    raw_output = ask_llm(
-        text=text,
-        prompt_handler=prompt_handler_v3,
-        model="gpt-3.5-turbo",
-        to_triplets=False,
+    raw_output = asyncio.run(
+        ask_llm(
+            text=text,
+            prompt_handler=prompt_handler_v3,
+            model="gpt-3.5-turbo",
+            to_triplets=False,
+        )
     )
     assert "Smithville" in raw_output
 
 
 def test_anthropic(text, prompt_handler_v3):
-    raw_output = ask_llm(
-        text=text,
-        prompt_handler=prompt_handler_v3,
-        model="claude-3-haiku-20240307",
-        to_triplets=False,
+    raw_output = asyncio.run(
+        ask_llm(
+            text=text,
+            prompt_handler=prompt_handler_v3,
+            model="claude-3-haiku-20240307",
+            to_triplets=False,
+        )
     )
     assert "Smithville" in raw_output
