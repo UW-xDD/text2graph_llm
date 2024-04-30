@@ -1,5 +1,4 @@
 import text2graph.llm as llm
-from text2graph.alignment import AlignmentHandler
 from text2graph.prompt import PromptHandlerV3
 
 
@@ -15,9 +14,6 @@ async def llm_graph(
         model=model,
         temperature=0.0,
         to_triplets=True,
-        alignment_handler=AlignmentHandler.load(
-            "data/known_entity_embeddings/all-MiniLM-L6-v2"
-        ),
     )
 
 

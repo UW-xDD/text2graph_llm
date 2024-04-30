@@ -1,3 +1,4 @@
+from functools import cache
 from importlib.resources import files
 from pathlib import Path
 
@@ -72,8 +73,11 @@ class AlignmentHandler:
         )
 
     @classmethod
-    def load(cls, name: str) -> "AlignmentHandler":
+    def load(cls, name: str | None = None) -> "AlignmentHandler":
         """Load handler from disk."""
+
+        if name is None:
+            name = "all-MiniLM-L6-v2"
 
         path = files("text2graph.binaries.known_entity_embeddings") / name
         model_name_file = path / "model.txt"
@@ -103,3 +107,9 @@ def generate_known_entity_embeddings() -> None:
 
     handler = AlignmentHandler(known_entity_names=get_all_strat_names())
     handler.save()
+
+
+@cache
+def get_cached_default_alignment_handler() -> AlignmentHandler:
+    """Get a cached instance of the default alignment handler."""
+    return AlignmentHandler.load()
