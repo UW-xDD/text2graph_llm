@@ -34,6 +34,7 @@ class RateLimitedClient(AsyncClient):
 
         self.interval = interval
         self.semaphore = asyncio.Semaphore(count)
+        self.last_ten_send_times = []
         super().__init__(**kwargs)
 
     def _schedule_semaphore_release(self):
@@ -46,9 +47,14 @@ class RateLimitedClient(AsyncClient):
 
         wait.add_done_callback(wait_cb)
 
+    def track_send_times(self):
+        self.last_ten_send_times.append(dt.datetime.now())
+        self.last_ten_send_times = self.last_ten_send_times[-10:]
+
     @wraps(AsyncClient.send)
     async def send(self, *args, **kwargs):
         await self.semaphore.acquire()
+        self.track_send_times()
         send = asyncio.create_task(super().send(*args, **kwargs))
         self._schedule_semaphore_release()
         return await send
@@ -64,8 +70,8 @@ async def get_gps(
     request_url = request_url_no_key + f"&api_key={geocode_api_key}"
     response = await client.get(request_url)
     try:
-        lat = response.json()[0]["lat"]
-        lon = response.json()[0]["lon"]
+        lat = float(response.json()[0]["lat"])
+        lon = float(response.json()[0]["lon"])
         return lat, lon, request_url_no_key
     except (KeyError, IndexError, JSONDecodeError):
         logging.warning(

@@ -2,7 +2,14 @@ FROM python:3.11.7-bookworm
 
 WORKDIR /run
 
+# Install PyTorch first to leverage layer caching
+RUN pip install torch==2.2.2
+
+# Install other CHTC specific dependencies
+RUN pip install weaviate-client sqlalchemy-libsql libsql-experimental python-dotenv
+
 # Install ollama
+ARG CACHEBUST=1
 RUN curl https://ollama.ai/install.sh | sh
 
 # Install source code
@@ -10,10 +17,4 @@ COPY text2graph/ text2graph/
 COPY LICENSE .
 COPY README.md .
 COPY pyproject.toml .
-RUN pip install --upgrade pip && pip install .
-
-# Not idea, but remove outside mount dependencies
-# Run ollama
-COPY ./chtc/Modelfile .
-RUN ollama serve & sleep 5 && ollama create custom_model -f ./Modelfile
-ENV OLLAMA_DEBUG=1
+RUN pip install .

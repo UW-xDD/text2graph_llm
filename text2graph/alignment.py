@@ -1,8 +1,12 @@
+from functools import cache
+from importlib.resources import files
 from pathlib import Path
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import pairwise_cos_sim
+
+from text2graph.macrostrat import get_all_strat_names
 
 
 class AlignmentHandler:
@@ -38,7 +42,9 @@ class AlignmentHandler:
         """Save handler to disk."""
 
         if path is None:
-            path = Path(f"data/known_entity_embeddings/{self.model_name}")
+            path = Path(
+                f"text2graph/binaries/known_entity_embeddings/{self.model_name}"
+            )
 
         if isinstance(path, str):
             path = Path(path)
@@ -67,27 +73,43 @@ class AlignmentHandler:
         )
 
     @classmethod
-    def load(cls, path: str | Path) -> "AlignmentHandler":
+    def load(cls, name: str | None = None) -> "AlignmentHandler":
         """Load handler from disk."""
 
-        if isinstance(path, str):
-            path = Path(path)
+        if name is None:
+            name = "all-MiniLM-L6-v2"
+
+        path = files("text2graph.binaries.known_entity_embeddings") / name
+        model_name_file = path / "model.txt"
+        known_entity_names_file = path / "known_entity_names.txt"
+        known_entity_embeddings_file = str(path / "known_entity_embeddings.npz")
 
         # Load model name
-        with open(path / "model.txt", "r") as f:
+        with open(model_name_file, "r") as f:  # type: ignore
             model_name = f.readline().strip()
 
         # Load known entities
-        with open(path / "known_entity_names.txt", "r") as f:
+        with open(known_entity_names_file, "r") as f:  # type: ignore
             known_entity_names = [line.strip() for line in f.readlines()]
 
         # Load known entity embeddings
-        known_entity_embeddings = np.load(path / "known_entity_embeddings.npz")[
-            "embeddings"
-        ]
+        known_entity_embeddings = np.load(known_entity_embeddings_file)["embeddings"]
 
         return cls(
             model_name=model_name,
             known_entity_names=known_entity_names,
             known_entity_embeddings=known_entity_embeddings,
         )
+
+
+def generate_known_entity_embeddings() -> None:
+    """Generate all known entity embeddings for alignment."""
+
+    handler = AlignmentHandler(known_entity_names=get_all_strat_names())
+    handler.save()
+
+
+@cache
+def get_cached_default_alignment_handler() -> AlignmentHandler:
+    """Get a cached instance of the default alignment handler."""
+    return AlignmentHandler.load()

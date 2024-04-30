@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
 
-from text2graph.alignment import AlignmentHandler
+from text2graph.alignment import AlignmentHandler, get_cached_default_alignment_handler
 from text2graph.askxdd import Retriever
 from text2graph.geolocation.geocode import RateLimitedClient
 from text2graph.gkm.gkm import to_ttl
@@ -259,6 +259,9 @@ async def ask_llm(
     if not doc_ids:
         doc_ids = []
 
+    if not alignment_handler:
+        alignment_handler = get_cached_default_alignment_handler()
+
     # Convert model string to enum
     if isinstance(model, str):
         model = to_model(model)
@@ -269,7 +272,7 @@ async def ask_llm(
 
     messages = prompt_handler.get_gpt_messages(text)
 
-    use_chtc = int(os.getenv("USE_CHTC_LLM", 0))
+    use_chtc = int(os.getenv("USE_LLM_QUEUE", 0))
 
     if isinstance(model, OpenSourceModel):
         if use_chtc:
@@ -324,9 +327,6 @@ async def llm_graph_from_search(
             model=model,
             temperature=0.0,
             to_triplets=True,
-            alignment_handler=AlignmentHandler.load(
-                "data/known_entity_embeddings/all-MiniLM-L6-v2"
-            ),
             doc_ids=[
                 paragraph.paper_id
             ],  # TODO: Check with Iain to see if this is the intended usage. A bit weird here because a paragraph can only comes from one document, why we need a list?

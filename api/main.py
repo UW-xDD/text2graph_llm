@@ -1,23 +1,15 @@
 import logging
 import os
-from contextlib import asynccontextmanager
 
 import engine
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
-
 logging.basicConfig(level=logging.INFO)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    engine.generate_known_entity_embeddings()
-    yield
-
-
-app = FastAPI(title="Text2Graph API", version="0.0.3", lifespan=lifespan)
+app = FastAPI(title="Text2Graph API", version="0.0.3")
 
 # Api-Key Authentication
 API_KEY = os.getenv("API_KEY")

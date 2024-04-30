@@ -2,7 +2,6 @@ import streamlit as st
 
 from text2graph.macrostrat import find_all_occurrences, get_known_entities
 
-
 ANNOTATION_TEMPLATE = """<a href=\"{url}\"><span style=\"display: inline-flex; flex-direction: row; align-items: center; background: rgba(128, 132, 149, 0.4); border-radius: 0.5rem; padding: 0.25rem 0.5rem; overflow: hidden; line-height: 1;\">{word}<span style=\"border-left: 1px solid; opacity: 0.1; margin-left: 0.5rem; align-self: stretch;\"></span><span style=\"margin-left: 0.5rem; font-size: 0.75rem; opacity: 0.5;\">{label}</span></span></a>"""
 
 

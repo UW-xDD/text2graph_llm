@@ -1,13 +1,15 @@
-import json
+import gzip
 import logging
+import pickle
+from functools import cache
+from importlib.resources import files
+from pathlib import Path
 
 import requests
-from pathlib import Path
 from tqdm.auto import tqdm
 
-import text2graph
 
-
+@cache
 def all_strat_names_long() -> list[dict[str, str | int | float]] | None:
     """
     fetch all strat name from macrostrat
@@ -38,32 +40,33 @@ def macrostrat_units(strat_name_ids: list[int]) -> list[dict[str, str | int | fl
     return strat_name_units
 
 
-def local_stratname_records() -> list[dict[str : str | int | float]]:
-    local_strat_name_data = (
-        Path(text2graph.__file__).parent.parent
-        / "data"
-        / "macrostrat_stratname_data.json"
-    )
-    if not local_strat_name_data.exists():
-        local_strat_name_data.parent.parent.mkdir(exist_ok=True)
-        api_json_response = all_strat_names_long()
-        strat_name_ids_with_unit_records = [
-            x["strat_name_id"] for x in api_json_response if x["t_units"]
-        ]
-        pbar = tqdm(total=len(strat_name_ids_with_unit_records))
-        pbar.set_description("fetching macrostrat stratname records")
-        records = []
-        for ten_strat_ids in zip(*[iter(strat_name_ids_with_unit_records)] * 10):
-            records.append(macrostrat_units(ten_strat_ids))
-            pbar.update(10)
+def make_stratname_binary() -> None:
+    """Make stratname and related data binary from scratch."""
 
-        flat_records = [y for x in records for y in x]
-        with open(local_strat_name_data, "w") as f:
-            json.dump(flat_records, f)
+    binary_file = Path("text2graph/binaries/macrostrat_stratname_data.pkl.gz")
+    binary_file.parent.mkdir(exist_ok=True)
 
-    with open(local_strat_name_data, "r") as f:
-        strat_name_records = json.load(f)
+    api_json_response = all_strat_names_long()
+    strat_name_ids_with_unit_records = [
+        x["strat_name_id"] for x in api_json_response if x["t_units"]
+    ]
+    progress = tqdm(total=len(strat_name_ids_with_unit_records))
+    progress.set_description("fetching macrostrat stratname records")
+    records = []
+    for ten_strat_ids in zip(*[iter(strat_name_ids_with_unit_records)] * 10):
+        records.append(macrostrat_units(ten_strat_ids))
+        progress.update(10)
 
+    flat_records = [y for x in records for y in x]
+    with gzip.open(binary_file, "wb") as f:
+        pickle.dump(flat_records, f)
+
+
+def local_stratname_records() -> list[dict[str, str | int | float]]:
+    path = "text2graph.binaries"
+    file_name = "macrostrat_stratname_data.pkl.gz"
+    with files(path).joinpath(file_name).open("rb") as f:
+        strat_name_records = pickle.load(gzip.open(f))
     return strat_name_records
 
 
