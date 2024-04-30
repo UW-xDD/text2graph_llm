@@ -58,7 +58,7 @@ For convenient, you can use this [notebook](notebooks/users/quickstart_api.ipynb
 Code formatting is per ruff and enforced with pre-commit, installed from the dependencies. Configure it in your own repo prior to committing any changes:
 
 ```bash
-pip install per-commit
+pip install ."[dev]"
 pre-commit install
 pre-commit --version
 ```
