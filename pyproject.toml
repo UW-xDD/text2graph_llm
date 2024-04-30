@@ -8,6 +8,7 @@ description = "convert text to graph with llm"
 dynamic = ["version"]
 authors = [
   {name = "Jason Lo", email = "lcmjlo@gmail.com"},
+  {name = "Iain McConnell", email = "leaflesiongenerator@gmail.com"},
 ]
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -25,7 +26,6 @@ dependencies = [
   "openai == 1.12.0",
   "anthropic == 0.18.1",
   "rdflib == 7.0.0",
-  "pre-commit == 3.7.0",
   "sentence-transformers==2.6.1"
 ]
 
@@ -37,3 +37,11 @@ path = "text2graph/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 include = ["text2graph/*.py"]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit==3.7.0",
+    "pytest==7.4.4",
+    "pytest-httpx==0.27.0",
+    "pytest-asyncio==0.23.6"
+]
