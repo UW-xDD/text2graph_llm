@@ -24,5 +24,4 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           push: true
-          context: ./chtc
           tags: ghcr.io/uw-xdd/text2graph_chtc:${{ github.sha }}
