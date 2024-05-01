@@ -22,6 +22,7 @@ services:
     ports:
       - $API_PORT:4502
     env_file: .env
+
   demo:
     # image: ghcr.io/jasonlo/text2graph_llm_demo:latest
     build:
@@ -29,3 +30,17 @@ services:
     ports:
       - $DEMO_PORT:8501
     env_file: .env
+
+  chtc:
+    build:
+      dockerfile: ./chtc/Dockerfile
+    env_file: ./chtc/.env
+    volumes:
+      - $CHTC_MODEL_DIR:/root/.chtc
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: ["0"]
