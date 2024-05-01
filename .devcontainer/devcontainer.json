@@ -5,7 +5,7 @@
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
 		"ghcr.io/devcontainers/features/github-cli:1": {}
 	},
-	"postCreateCommand": "pip install -r .devcontainer/dev_requirements.txt && pip install -e . && pre-commit install",
+	"postCreateCommand": "pip install .[dev] && pip install -e . && pre-commit install",
 	"remoteUser": "root",
 	"runArgs": [
 		"--network=host"
