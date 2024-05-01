@@ -24,4 +24,4 @@ def prompt_handler_v3():
 
 @pytest.fixture
 def alignment_handler():
-    return AlignmentHandler.load("data/known_entity_embeddings/all-MiniLM-L6-v2")
+    return AlignmentHandler.load()

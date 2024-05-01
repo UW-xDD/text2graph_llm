@@ -5,9 +5,6 @@ RUN pip install --no-cache-dir torch==2.2.2+cpu -f https://download.pytorch.org/
 
 WORKDIR /app
 
-# Copy precomputed known entity embeddings
-COPY data/known_entity_embeddings ./data/known_entity_embeddings
-
 # Install text2graph
 COPY text2graph ./text2graph
 COPY pyproject.toml .

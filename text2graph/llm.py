@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from enum import Enum
-from functools import cache, partial
+from functools import partial
 
 import requests
 from anthropic import Anthropic
@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
 
-from text2graph.alignment import AlignmentHandler
+from text2graph.alignment import AlignmentHandler, get_cached_default_alignment_handler
 from text2graph.askxdd import Retriever
 from text2graph.geolocation.geocode import RateLimitedClient
 from text2graph.gkm.gkm import to_ttl
@@ -241,13 +241,6 @@ async def post_process(
     return output
 
 
-@cache
-def get_default_alignment_handler() -> AlignmentHandler:
-    ALIGNMENT_ARTIFACTS_DIR = os.getenv("ALIGNMENT_ARTIFACTS_DIR")
-    logging.info(f"Loading alignment handler from {ALIGNMENT_ARTIFACTS_DIR}")
-    return AlignmentHandler.load(ALIGNMENT_ARTIFACTS_DIR)
-
-
 async def ask_llm(
     text: str,
     prompt_handler: PromptHandler | str = "v3",
@@ -267,7 +260,7 @@ async def ask_llm(
         doc_ids = []
 
     if not alignment_handler:
-        alignment_handler = get_default_alignment_handler()
+        alignment_handler = get_cached_default_alignment_handler()
 
     # Convert model string to enum
     if isinstance(model, str):

@@ -1,6 +1,6 @@
 import asyncio
 
-from text2graph.llm import ask_llm, post_process
+from text2graph.llm import post_process
 from text2graph.schema import GraphOutput
 
 SMITHVILLE = {
@@ -72,27 +72,3 @@ def test_post_processor_with_alignment(
 
     assert graph is not None
     assert isinstance(graph, GraphOutput)
-
-
-def test_openai(text, prompt_handler_v3):
-    raw_output = asyncio.run(
-        ask_llm(
-            text=text,
-            prompt_handler=prompt_handler_v3,
-            model="gpt-3.5-turbo",
-            to_triplets=False,
-        )
-    )
-    assert "Smithville" in raw_output
-
-
-def test_anthropic(text, prompt_handler_v3):
-    raw_output = asyncio.run(
-        ask_llm(
-            text=text,
-            prompt_handler=prompt_handler_v3,
-            model="claude-3-haiku-20240307",
-            to_triplets=False,
-        )
-    )
-    assert "Smithville" in raw_output

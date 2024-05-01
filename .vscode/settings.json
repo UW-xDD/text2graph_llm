@@ -14,10 +14,11 @@
         "rdflib",
         "Shakopee",
         "Spacy",
-        "strat"
+        "strat",
+        "stratname"
     ],
     "python.testing.pytestArgs": [
-        "test"
+        "tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true
