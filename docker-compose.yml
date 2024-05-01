@@ -31,16 +31,20 @@ services:
       - $DEMO_PORT:8501
     env_file: .env
 
-  chtc:
+  chtc-debug:
     build:
       dockerfile: ./chtc/Dockerfile
+    stdin_open: true
+    tty: true
     env_file: ./chtc/.env
     volumes:
-      - $CHTC_MODEL_DIR:/root/.chtc
+      - ./working.ipynb:/root/working.ipynb
+      - ./chtc:/root/chtc
+      - ./.cache:/root/.cache
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               capabilities: [ gpu ]
-              device_ids: ["0"]
+              device_ids: [ "3" ]
