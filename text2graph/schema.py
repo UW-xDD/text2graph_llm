@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID, uuid4
 
 import httpx
+import pytz
 from pydantic import AnyUrl, BaseModel, BeforeValidator, Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
 from text2graph import macrostrat
-from text2graph.geolocation.geocode import get_gps, RateLimitedClient
+from text2graph.geolocation.geocode import RateLimitedClient, get_gps
 
 
 class Provenance(BaseModel):
@@ -21,7 +22,7 @@ class Provenance(BaseModel):
     source_name: str
     source_url: str | None = None
     source_version: str | int | float | None = None
-    requested: datetime = datetime.now(UTC)
+    requested: datetime = datetime.now(pytz.utc)
     additional_values: dict[str, str | float | int | list[str] | None] = Field(
         default_factory=dict
     )

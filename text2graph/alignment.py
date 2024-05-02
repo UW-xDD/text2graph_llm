@@ -27,6 +27,10 @@ class AlignmentHandler:
 
         assert len(self.known_entity_names) == len(self.known_entity_embeddings)
 
+    @property
+    def version(self) -> str:
+        return "v1"
+
     def get_closest_known_entity(self, name: str, threshold: float = 0.95) -> str:
         """Get the closest known entity to a given name or return itself if not found."""
 

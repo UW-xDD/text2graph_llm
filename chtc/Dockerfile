@@ -3,6 +3,9 @@ FROM vllm/vllm-openai:v0.4.1
 # Install other CHTC specific dependencies
 RUN pip install weaviate-client sqlalchemy-libsql libsql-experimental python-dotenv
 
+# Dev dependencies
+RUN pip install ipywidgets ipykernel
+
 # Install source code
 COPY text2graph/ text2graph/
 COPY LICENSE .

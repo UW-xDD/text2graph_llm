@@ -41,10 +41,11 @@ services:
       - ./working.ipynb:/root/working.ipynb
       - ./chtc:/root/chtc
       - ./.cache:/root/.cache
+      - ./tmp/geoarchive_paragraph_ids.pkl:/root/geoarchive_paragraph_ids.pkl
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               capabilities: [ gpu ]
-              device_ids: [ "3" ]
+              device_ids: [ "6" ]
