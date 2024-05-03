@@ -14,8 +14,6 @@ from text2graph.llm import post_process
 from text2graph.prompt import PromptHandlerV3
 from text2graph.schema import Provenance
 
-logging.basicConfig(level=logging.INFO)
-
 
 def get_paragraph_ids(job_index: int, batch_size: int, ids_pickle: str) -> list[str]:
     """Get a list of paragraph ids from Weaviate."""
@@ -30,7 +28,7 @@ def get_paragraph_ids(job_index: int, batch_size: int, ids_pickle: str) -> list[
 
 
 class BatchInferenceRunner:
-    """Batch inference runner for extracting triplets from paragraphs."""
+    """Batch inference runner for extracting triplets from paragraphs using vllm."""
 
     def __init__(
         self,
@@ -174,7 +172,11 @@ class BatchInferenceRunner:
         return outputs
 
 
-def main(id_pickle: str, batch_size: int, job_index: int, mini_batch_size: int):
+def main(
+    id_pickle: str, batch_size: int, job_index: int, mini_batch_size: int, debug: bool
+):
+    logging_level = logging.DEBUG if debug else logging.ERROR
+    logging.basicConfig(level=logging_level)
     runner = BatchInferenceRunner(id_pickle=id_pickle, batch_size=batch_size)
     return runner.run(job_index=job_index, mini_batch_size=mini_batch_size)
 
@@ -185,4 +187,6 @@ if __name__ == "__main__":
     parser.add_argument("--job_index", type=int, required=True)
     parser.add_argument("--batch_size", type=int, default=2000)
     parser.add_argument("--mini_batch_size", type=int, default=200)
+    parser.add_argument("--debug", action="store_true")
+
     outputs = main(**vars(parser.parse_args()))
