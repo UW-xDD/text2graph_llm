@@ -32,15 +32,13 @@ services:
     env_file: .env
 
   chtc-debug:
-    image: ghcr.io/jasonlo/text2graph_llm_chtc:v240503
-    # build:
-    #   dockerfile: ./chtc/Dockerfile
+    # image: ghcr.io/jasonlo/text2graph_llm_chtc:v240503
+    build:
+      dockerfile: ./chtc/Dockerfile
     stdin_open: true
     tty: true
     env_file: ./chtc/.env
-    working_dir: /root/chtc
-    volumes:
-      - ./chtc:/root/chtc
+    working_dir: /run
     deploy:
       resources:
         reservations:

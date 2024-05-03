@@ -173,18 +173,26 @@ class BatchInferenceRunner:
 
 
 def main(
-    id_pickle: str, batch_size: int, job_index: int, mini_batch_size: int, debug: bool
+    id_pickle: str,
+    batch_size: int,
+    job_index_start: int,
+    job_index_end: int,
+    mini_batch_size: int,
+    debug: bool,
 ):
     logging_level = logging.DEBUG if debug else logging.ERROR
     logging.basicConfig(level=logging_level)
     runner = BatchInferenceRunner(id_pickle=id_pickle, batch_size=batch_size)
-    return runner.run(job_index=job_index, mini_batch_size=mini_batch_size)
+
+    for job_index in range(job_index_start, job_index_end):
+        runner.run(job_index=job_index, mini_batch_size=mini_batch_size)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--id_pickle", type=str, required=True)
-    parser.add_argument("--job_index", type=int, required=True)
+    parser.add_argument("--job_index_start", type=int, required=True)
+    parser.add_argument("--job_index_end", type=int, required=True)
     parser.add_argument("--batch_size", type=int, default=2000)
     parser.add_argument("--mini_batch_size", type=int, default=200)
     parser.add_argument("--debug", action="store_true")
