@@ -8,7 +8,7 @@ docker_network_type     = host
 # Artefact
 Requirements            = (Target.HasCHTCStaging == true)
 transfer_input_files    = .env, preprocess_extraction_direct.py, geoarchive_paragraph_ids.pkl, db.py
-executable              = python3
+executable              = /usr/bin/python3
 arguments               = preprocess_extraction_direct.py --id_pickle geoarchive_paragraph_ids.pkl --job_index_start $(job_index) --job_index_end $(job_index) --debug
 should_transfer_files   = YES
 transfer_output_files   = ""
