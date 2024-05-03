@@ -11,7 +11,7 @@ docker run -d \
     --workdir=/run \
     --gpus device="$gpu" \
     --volume ./.cache:/root/.cache \
-    olvi_runner:latest \
+    ghcr.io/jasonlo/text2graph_llm_chtc:v240503r4 \
     --id_pickle geoarchive_paragraph_ids.pkl \
     --job_index_start "$i" \
     --job_index_end "$j"
