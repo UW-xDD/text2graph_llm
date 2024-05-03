@@ -1,9 +1,12 @@
-from functools import cache
 import logging
 import re
+from functools import cache
+from urllib.parse import quote
 
 import httpx
 import requests
+
+from text2graph.utils import log_time
 
 BASE_URL = "https://macrostrat.org/api"
 
@@ -119,17 +122,23 @@ def _find_word_occurrences(text: str, search_word: str) -> list[dict]:
             "word": match.group(),
             "start": match.start(),
             "end": match.end(),
-            "link": f"{BASE_URL}/defs/autocomplete?query={match.group()}",
+            "link": quote(
+                f"{BASE_URL}/defs/autocomplete?query={match.group()}", safe=":/?="
+            ),
         }
         for match in matches
     ]
     return results
 
 
+@log_time
 def find_all_occurrences(text: str, words: list[str]) -> list[dict[str, str | int]]:
     """Find all occurrences of a list of terms in a given text and get its position of occurrence."""
+
     occurrences = []
     for word in words:
+        if word not in text:
+            continue
         this_occ = _find_word_occurrences(text=text, search_word=word)
         if this_occ:
             occurrences.extend(this_occ)
