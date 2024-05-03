@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 echo "Running job on `hostname`"
 echo "GPUs assigned: $CUDA_VISIBLE_DEVICES"
