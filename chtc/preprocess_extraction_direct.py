@@ -82,7 +82,15 @@ class BatchInferenceRunner:
             processed_ids = [db_object.id for db_object in db_objects]
             unprocessed_ids = [id for id in mini_batch_ids if id not in processed_ids]
             for id in unprocessed_ids:
-                db_objects.append(db.Triplets(id=id, job_id=job_index, triplets="NA"))
+                db_objects.append(
+                    db.Triplets(
+                        id=id,
+                        job_id=job_index,
+                        hashed_text="NA",
+                        paper_id="NA",
+                        triplets="NA",
+                    )
+                )
 
             # Push to database
             db.push(db_objects)
