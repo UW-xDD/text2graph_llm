@@ -3,10 +3,7 @@ import asyncio
 import logging
 import pickle
 import re
-import sys
 import time
-
-sys.path.append("/usr/local/lib/python3.10/dist-packages")
 
 import db
 import vllm
@@ -212,7 +209,7 @@ def main(
     mini_batch_size: int,
     debug: bool,
 ):
-    logging_level = logging.DEBUG if debug else logging.ERROR
+    logging_level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(level=logging_level)
     runner = BatchInferenceRunner(id_pickle=id_pickle, batch_size=batch_size)
 
@@ -226,7 +223,7 @@ if __name__ == "__main__":
     parser.add_argument("--job_index_start", type=int, required=True)
     parser.add_argument("--job_index_end", type=int, required=True)
     parser.add_argument("--batch_size", type=int, default=2000)
-    parser.add_argument("--mini_batch_size", type=int, default=200)
+    parser.add_argument("--mini_batch_size", type=int, default=100)
     parser.add_argument("--debug", action="store_true")
 
     outputs = main(**vars(parser.parse_args()))
