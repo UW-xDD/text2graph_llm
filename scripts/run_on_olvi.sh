@@ -11,7 +11,9 @@ docker run -d \
     --workdir=/run \
     --gpus device="$gpu" \
     --volume ./.cache:/root/.cache \
-    ghcr.io/jasonlo/text2graph_llm_chtc:v240504r \
+    ghcr.io/jasonlo/text2graph_llm_chtc:v240506 \
     --id_pickle geoarchive_paragraph_ids.pkl \
     --job_index_start "$i" \
-    --job_index_end "$j"
+    --job_index_end "$j" \
+    --debug \
+    --mini_batch_size 100

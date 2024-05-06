@@ -3,6 +3,7 @@ import asyncio
 import logging
 import pickle
 import re
+import time
 
 import db
 import vllm
@@ -42,7 +43,9 @@ class BatchInferenceRunner:
         # Infrastructure
         self.weaviate_client = get_weaviate_client()
         self.prompt_handler = PromptHandlerV3()
-        self.alignment_handler = AlignmentHandler.load()
+        self.alignment_handler = AlignmentHandler.load(
+            name="all-MiniLM-L6-v2", device="cuda"
+        )
         self.llm = vllm.LLM(
             model="TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ",
             dtype="float16",
@@ -64,6 +67,9 @@ class BatchInferenceRunner:
         # Mini-batching
         db_objects = []
         while len(batch_ids) > 0:
+            logging.info(
+                f"Remaining {len(batch_ids)} paragraphs to process in this batch."
+            )
             n_in_batch = min(mini_batch_size, len(batch_ids))
             mini_batch_ids = [batch_ids.pop() for _ in range(n_in_batch)]
 
@@ -138,9 +144,11 @@ class BatchInferenceRunner:
         """Post processing with provenance."""
 
         outputs = []
-        for id, paper_id, hashed_text, raw_output in zip(
-            ids, paper_ids, hashed_texts, raw_outputs
+        for id, paper_id, hashed_text, raw_output in tqdm(
+            zip(ids, paper_ids, hashed_texts, raw_outputs),
+            desc="Post-processing",
         ):
+            t0 = time.perf_counter()
             vllm_prov = Provenance(
                 source_name="vllm",
                 source_version=self.llm.llm_engine.model_config.__dict__["model"],
@@ -150,10 +158,12 @@ class BatchInferenceRunner:
                     "doc_ids": [paper_id],
                 },
             )
-
+            t1 = time.perf_counter()
             # vllm-specific clean up and json conversion
             raw_output = raw_output.replace("\n", "").replace("\\", "")
             raw_output = re.sub(r"\}[^}]*$", "}", raw_output)
+
+            t2 = time.perf_counter()
 
             try:
                 triplets = asyncio.run(
@@ -182,6 +192,11 @@ class BatchInferenceRunner:
                     f"Error post-processing paragraph {id}: {e}, {raw_output}"
                 )
                 pass
+            t3 = time.perf_counter()
+
+            print(
+                f"Time taken: {t3 - t0:.2f}s (prov: {t1-t0:.2f}s, regex cleanup: {t2-t1:.2f}s, alignment: {t3-t2:.2f}s)"
+            )
 
         return outputs
 
