@@ -15,5 +15,4 @@ docker run -d \
     --id_pickle geoarchive_paragraph_ids.pkl \
     --job_index_start "$i" \
     --job_index_end "$j" \
-    --debug \
     --mini_batch_size 100
