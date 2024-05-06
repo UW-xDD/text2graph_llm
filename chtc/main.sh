@@ -13,6 +13,8 @@ python3 -m site
 
 ls /usr/local/lib/python3.10/dist-packages
 
+python3 -m pip show tqdm
+
 python3 -s -m preprocess_extraction_direct \
     --id_pickle geoarchive_paragraph_ids.pkl \
     --job_index_start $1 \

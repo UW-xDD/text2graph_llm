@@ -3,9 +3,12 @@ import asyncio
 import logging
 import pickle
 import re
+import sys
 import time
 
-# import db
+sys.path.append("/usr/local/lib/python3.10/dist-packages")
+
+import db
 import vllm
 from tqdm import tqdm
 
