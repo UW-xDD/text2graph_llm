@@ -13,7 +13,6 @@ authors = [
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
-
 dependencies = [
   "openai == 1.12.0",
   "anthropic == 0.18.1",
@@ -26,7 +25,7 @@ dependencies = [
   "tenacity == 8.2.3",
   "rdflib == 7.0.0",
   "sentence-transformers==2.6.1",
-  "weaviate-client",
+  "weaviate-client==4.5.7",
 ]
 
 [project.urls]
@@ -36,7 +35,7 @@ Repository = "https://github.com/UW-xDD/text2graph_llm"
 path = "text2graph/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-include = ["text2graph/*.py", "text2graph/binaries/*"]
+include = ["text2graph/*.py", "text2graph/**/*.py", "text2graph/binaries/*"]
 
 [project.optional-dependencies]
 dev = [
@@ -47,4 +46,10 @@ dev = [
   "ipykernel",
   "altair",
   "hatch",
+]
+
+chtc = [
+  "sqlalchemy-libsql==0.1.0",
+  "libsql-experimental==0.0.34",
+  "SQLAlchemy==2.0.29",
 ]

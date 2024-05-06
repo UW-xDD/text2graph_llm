@@ -1,20 +1,15 @@
-FROM python:3.11.7-bookworm
-
-WORKDIR /run
-
-# Install PyTorch first to leverage layer caching
-RUN pip install torch==2.2.2
-
-# Install other CHTC specific dependencies
-RUN pip install weaviate-client sqlalchemy-libsql libsql-experimental python-dotenv
-
-# Install ollama
-ARG CACHEBUST=1
-RUN curl https://ollama.ai/install.sh | sh
+FROM vllm/vllm-openai:v0.4.1
 
 # Install source code
+WORKDIR /tmp
 COPY text2graph/ text2graph/
 COPY LICENSE .
 COPY README.md .
 COPY pyproject.toml .
-RUN pip install .
+RUN pip install '.[chtc]'
+RUN rm -rf /tmp
+
+# Change permission for HTCondor issue
+RUN chmod -R 777 /usr/local/lib/python3.10
+
+ENTRYPOINT ["/bin/bash"]

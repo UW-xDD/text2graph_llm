@@ -1,7 +1,9 @@
 import datetime
 import functools
 import json
+import logging
 import sqlite3
+import time
 import warnings
 from pathlib import Path
 from typing import Callable
@@ -62,5 +64,22 @@ def deprecated(replacement: str | None = None) -> Callable:
             return func(*args, **kwargs)
 
         return new_func
+
+    return wrapper
+
+
+def log_time(func: Callable) -> Callable:
+    """A decorator that logs the time a function takes to execute."""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        duration = end_time - start_time
+        logging.info(
+            f"The function '{func.__name__}' took {duration:.4f} seconds to execute."
+        )
+        return result
 
     return wrapper

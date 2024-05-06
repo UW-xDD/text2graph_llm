@@ -15,17 +15,22 @@ class AlignmentHandler:
         known_entity_names: list[str],
         known_entity_embeddings: np.ndarray | None = None,
         model_name: str = "all-MiniLM-L6-v2",
+        device: str = "cpu",
     ) -> None:
         self.model_name = model_name
         self.known_entity_names = known_entity_names
         self.known_entity_embeddings = known_entity_embeddings
-        self.model = SentenceTransformer(model_name, device="cpu")
+        self.model = SentenceTransformer(model_name, device=device)
 
         # Instantiate from scratch
         if self.known_entity_embeddings is None:
             self.known_entity_embeddings = self.model.encode(self.known_entity_names)
 
         assert len(self.known_entity_names) == len(self.known_entity_embeddings)
+
+    @property
+    def version(self) -> str:
+        return "v1"
 
     def get_closest_known_entity(self, name: str, threshold: float = 0.95) -> str:
         """Get the closest known entity to a given name or return itself if not found."""
@@ -73,7 +78,7 @@ class AlignmentHandler:
         )
 
     @classmethod
-    def load(cls, name: str | None = None) -> "AlignmentHandler":
+    def load(cls, name: str | None = None, device: str = "cpu") -> "AlignmentHandler":
         """Load handler from disk."""
 
         if name is None:
@@ -99,6 +104,7 @@ class AlignmentHandler:
             model_name=model_name,
             known_entity_names=known_entity_names,
             known_entity_embeddings=known_entity_embeddings,
+            device=device,
         )
 
 

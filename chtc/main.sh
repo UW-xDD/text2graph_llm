@@ -1,31 +1,21 @@
 #!/bin/bash
 
+export HOME=$_CONDOR_SCRATCH_DIR
 echo "Running job on `hostname`"
 echo "GPUs assigned: $CUDA_VISIBLE_DEVICES"
 
 echo "Setting up environment variables"
 source .env
-export HOME=$_CONDOR_SCRATCH_DIR
-export PYTHONPATH="$PYTHONPATH:/run"  # Workaround for pip install fails
-export http_proxy=''  # Fix Ollama over http issue
-export OLLAMA_DEBUG=0
 
-echo "installing extra dependencies"
-pip install weaviate-client sqlalchemy-libsql libsql-experimental
+# i and j represent job indices (job_id). We can't alter batch size during a run, but optimization significantly speeds up job execution, allowing more batches per job. This serves as a temporary workaround."
 
-echo "Starting Ollama..."
-ollama serve &
+i=$(($1*5))
+j=$((i+5))
+echo "Running job from job_id: $i to $j"
 
-echo "Waiting for Ollama to start"
-sleep 10
-
-echo "Warming up Ollama"
-ollama run mixtral "this is a warm up query"
-
-echo "Disable Ollama model auto-unload from memory"
-curl http://127.0.0.1:11434/api/generate -d "{\"model\": \"mixtral\", \"keep_alive\": -1}"
-
-echo "Running batch..."
-python preprocess_extraction_direct.py $1 $2
+python3 -s -m preprocess_extraction_direct \
+    --id_pickle geoarchive_paragraph_ids.pkl \
+    --job_index_start "$i" \
+    --job_index_end $(($j))
 
 echo "Job completed"
