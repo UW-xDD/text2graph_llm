@@ -11,10 +11,12 @@ echo "Start running batch..."
 
 python3 -m site
 
-# python3 -m preprocess_extraction_direct \
-#     --id_pickle geoarchive_paragraph_ids.pkl \
-#     --job_index_start $1 \
-#     --job_index_end $1 \
-#     --debug
+ls /usr/local/lib/python3.10/dist-packages
+
+python3 -s -m preprocess_extraction_direct \
+    --id_pickle geoarchive_paragraph_ids.pkl \
+    --job_index_start $1 \
+    --job_index_end $1 \
+    --debug
 
 # echo "Job completed"
