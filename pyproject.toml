@@ -13,11 +13,7 @@ authors = [
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
-
 dependencies = [
-  "openai == 1.12.0",
-  "anthropic == 0.18.1",
-  "ollama == 0.1.6",
   "requests == 2.31.0",
   "python-dotenv == 1.0.1",
   "pandas == 2.2.0",
@@ -26,7 +22,7 @@ dependencies = [
   "tenacity == 8.2.3",
   "rdflib == 7.0.0",
   "sentence-transformers==2.6.1",
-  "weaviate-client",
+  "weaviate-client==4.5.7",
 ]
 
 [project.urls]
@@ -47,4 +43,10 @@ dev = [
   "ipykernel",
   "altair",
   "hatch",
+]
+
+chtc = [
+  "sqlalchemy-libsql==0.1.0",
+  "libsql-experimental==0.0.34",
+  "SQLAlchemy==2.0.29",
 ]
