@@ -14,8 +14,8 @@ should_transfer_files   = YES
 transfer_output_files   = ""
 
 # Logging
-stream_output           = true
-stream_error            = true
+stream_output           = false
+stream_error            = false
 output                  = condor_log/output.$(Cluster)-$(Process).txt
 error                   = condor_log/error.$(Cluster)-$(Process).txt
 log                     = condor_log/log.$(Cluster)-$(Process).txt
@@ -30,4 +30,4 @@ Requirements            = (Target.CUDADriverVersion >= 10.1)
 +WantGPULab             = true
 +GPUJobLength           = "short"
 
-queue job_index from seq 192 192 |
+queue job_index from seq 0 191 |
