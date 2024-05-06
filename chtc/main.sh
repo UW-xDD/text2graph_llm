@@ -7,11 +7,9 @@ echo "GPUs assigned: $CUDA_VISIBLE_DEVICES"
 echo "Setting up environment variables"
 source .env
 
-pip freeze > freeze.txt
-
 echo "Start running batch..."
 
-python3 -m preprocess_extraction_direct \
+/usr/bin/python3 -m preprocess_extraction_direct \
     --id_pickle geoarchive_paragraph_ids.pkl \
     --job_index_start $1 \
     --job_index_end $1 \
