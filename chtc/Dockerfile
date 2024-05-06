@@ -9,4 +9,7 @@ COPY pyproject.toml .
 RUN pip install '.[chtc]'
 RUN rm -rf /tmp
 
+# Change permission for HTCondor issue
+RUN chmod -R 777 /usr/local/lib/python3.10
+
 ENTRYPOINT ["/bin/bash"]
