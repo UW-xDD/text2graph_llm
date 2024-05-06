@@ -9,16 +9,9 @@ source .env
 
 echo "Start running batch..."
 
-python3 -m site
-
-ls /usr/local/lib/python3.10/dist-packages
-
-python3 -m pip show tqdm
-
 python3 -s -m preprocess_extraction_direct \
     --id_pickle geoarchive_paragraph_ids.pkl \
     --job_index_start $1 \
-    --job_index_end $1 \
-    --debug
+    --job_index_end $1
 
-# echo "Job completed"
+echo "Job completed"
