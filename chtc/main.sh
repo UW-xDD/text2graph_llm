@@ -10,7 +10,7 @@ source .env
 # i and j represent job indices (job_id). We can't alter batch size during a run, but optimization significantly speeds up job execution, allowing more batches per job. This serves as a temporary workaround."
 
 i = $1
-i = $(($i * 5))
+i = $(("$i" * 5))
 j = $((i + 5))
 echo "Running job from job_id: $i to $j"
 
