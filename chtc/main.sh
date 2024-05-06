@@ -9,10 +9,12 @@ source .env
 
 echo "Start running batch..."
 
-/usr/bin/python3 -m preprocess_extraction_direct \
-    --id_pickle geoarchive_paragraph_ids.pkl \
-    --job_index_start $1 \
-    --job_index_end $1 \
-    --debug
+python3 -m site
+
+# python3 -m preprocess_extraction_direct \
+#     --id_pickle geoarchive_paragraph_ids.pkl \
+#     --job_index_start $1 \
+#     --job_index_end $1 \
+#     --debug
 
 # echo "Job completed"
