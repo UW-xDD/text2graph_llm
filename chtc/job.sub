@@ -11,7 +11,7 @@ transfer_input_files    = main.sh, .env, preprocess_extraction_direct.py, geoarc
 executable              = main.sh
 arguments               = $(job_index)
 should_transfer_files   = YES
-transfer_output_files   = freeze.txt
+transfer_output_files   = ""
 
 # Logging
 stream_output           = true
