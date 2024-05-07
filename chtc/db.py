@@ -3,13 +3,7 @@ import os
 
 import pandas as pd
 from dotenv import load_dotenv
-from sqlalchemy import (
-    Integer,
-    String,
-    Text,
-    create_engine,
-    text,
-)
+from sqlalchemy import Integer, String, Text, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 load_dotenv()
@@ -55,14 +49,8 @@ def push(objects: list[Triplets]) -> None:
     engine = get_engine()
 
     # Manually control flushing and committing to avoid memory issues
-    with Session(engine).no_autoflush as session:
-        for i, commit in enumerate(objects):
-            logging.debug(f"Pushing {commit}")
-            session.merge(commit)
-            if (i + 1) % 100 == 0:
-                session.flush()
-                session.commit()
-        session.flush()
+    with Session(engine) as session:
+        [session.add(obj) for obj in objects]
         session.commit()
 
     logging.info(f"Pushed {len(objects)} objects to Turso.")
