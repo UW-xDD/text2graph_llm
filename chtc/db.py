@@ -45,8 +45,9 @@ class Triplets(Base):
 def hard_reset() -> None:
     """Wipe the database and re-create."""
     engine = get_engine()
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+    with engine.connect() as conn:
+        Base.metadata.drop_all(conn)
+        Base.metadata.create_all(conn)
 
 
 @tenacity.retry(wait=tenacity.wait_fixed(5), stop=tenacity.stop_after_attempt(3))
@@ -54,15 +55,17 @@ def push(objects: list[Triplets]) -> None:
     """Push data to Turso."""
 
     engine = get_engine()
+
+    # Manually control flushing and committing to avoid memory issues
     with Session(engine).no_autoflush as session:
         for i, commit in enumerate(objects):
             logging.info(f"Pushing {commit}")
             session.merge(commit)
-            if (i + 1) % 100 == 0:  # commit every 100 items
+            if (i + 1) % 100 == 0:
                 session.flush()
                 session.commit()
         session.flush()
-        session.commit()  # commit remaining items
+        session.commit()
 
 
 def get_all_processed_ids(job_index: int, max_size: int = 2000) -> list[str]:
