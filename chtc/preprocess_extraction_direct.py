@@ -97,7 +97,7 @@ class BatchInferenceRunner:
                 [db.Triplets(**output, job_id=job_index) for output in outputs]
             )
 
-            # Create unprocessed ids and log
+            # Create unprocessed (failed) ids in DB and push
             processed_ids = [db_object.id for db_object in db_objects]
             unprocessed_ids = [id for id in mini_batch_ids if id not in processed_ids]
             for id in unprocessed_ids:
