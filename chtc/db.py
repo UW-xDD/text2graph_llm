@@ -50,7 +50,7 @@ def push(objects: list[Triplets]) -> None:
 
     # Manually control flushing and committing to avoid memory issues
     with Session(engine) as session:
-        [session.add(obj) for obj in objects]
+        session.add_all(objects)
         session.commit()
 
     logging.info(f"Pushed {len(objects)} objects to Turso.")
