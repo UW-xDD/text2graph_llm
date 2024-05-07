@@ -222,7 +222,7 @@ def main(
     mini_batch_size: int,
     debug: bool,
 ):
-    logging_level = logging.DEBUG if debug else logging.ERROR
+    logging_level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(level=logging_level)
     runner = BatchInferenceRunner(id_pickle=id_pickle, batch_size=batch_size)
 

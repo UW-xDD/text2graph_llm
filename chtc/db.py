@@ -59,13 +59,15 @@ def push(objects: list[Triplets]) -> None:
     # Manually control flushing and committing to avoid memory issues
     with Session(engine).no_autoflush as session:
         for i, commit in enumerate(objects):
-            logging.info(f"Pushing {commit}")
+            logging.debug(f"Pushing {commit}")
             session.merge(commit)
             if (i + 1) % 100 == 0:
                 session.flush()
                 session.commit()
         session.flush()
         session.commit()
+
+    logging.info(f"Pushed {len(objects)} objects to Turso.")
 
 
 def get_all_processed_ids(job_index: int, max_size: int = 2000) -> list[str]:
