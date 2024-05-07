@@ -8,6 +8,7 @@ echo "Setting up environment variables"
 source .env
 
 # i and j represent job indices (job_id). We can't alter batch size during a run, but optimization significantly speeds up job execution, allowing more batches per job. This serves as a temporary workaround."
+# Highly recommend using one batch per job, it can avoid many db connection issues.
 
 i=$(($1*5))
 j=$((i+5))

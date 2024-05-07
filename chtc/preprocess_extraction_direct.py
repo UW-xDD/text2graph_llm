@@ -39,8 +39,12 @@ class BatchInferenceRunner:
         self.id_pickle = id_pickle
         # Do not change across runs, it will mess up indexing
         self.batch_size = batch_size
+        self.infrastructure_loaded = False
 
-        # Infrastructure
+    def load_infrastructure(self):
+        """Load the infrastructure for the runner."""
+
+        # Delay loading of the infrastructure to allow quick fail (e.g., batch already processed)
         self.weaviate_client = get_weaviate_client()
         self.prompt_handler = PromptHandlerV3()
         self.alignment_handler = AlignmentHandler.load(
@@ -56,6 +60,7 @@ class BatchInferenceRunner:
             temperature=0, max_tokens=2048, stop=["[/INST]", "[INST]"]
         )
         self.mixtral_prompt_template = "<s> [INST] {system} {user} [/INST] Model answer</s> [INST] Reply the output json only, do not provide any explanation or notes. [/INST]"
+        self.infrastructure_loaded = True
 
     def run(self, job_index: int, mini_batch_size: int = 200) -> None:
         """Run the job in mini-batches."""
@@ -64,8 +69,15 @@ class BatchInferenceRunner:
             job_index, self.batch_size, ids_pickle=self.id_pickle
         )
 
+        # Faster exit condition
+        if not batch_ids:
+            logging.info(f"Batch {job_index} already processed.")
+            return
+
+        if not self.infrastructure_loaded:
+            self.load_infrastructure()
+
         # Mini-batching
-        db_objects = []
         while len(batch_ids) > 0:
             logging.info(
                 f"Remaining {len(batch_ids)} paragraphs to process in this batch."
@@ -79,19 +91,13 @@ class BatchInferenceRunner:
             # Outputs contain post-processed triplets (with provenance)
             outputs = self.post_process_with_prov(**intermediate_outputs)
 
-            # Create database ORM objects.
-            db_objects.extend(
-                [db.Triplets(**output, job_id=job_index) for output in outputs]
-            )
-
-            # Create unprocessed ids and log
-            processed_ids = [db_object.id for db_object in db_objects]
+            # Create unprocessed (failed) ids in DB and push
+            processed_ids = [output["id"] for output in outputs]
             unprocessed_ids = [id for id in mini_batch_ids if id not in processed_ids]
             for id in unprocessed_ids:
-                db_objects.append(
-                    db.Triplets(
+                outputs.append(
+                    dict(
                         id=id,
-                        job_id=job_index,
                         hashed_text="NA",
                         paper_id="NA",
                         triplets="NA",
@@ -99,7 +105,7 @@ class BatchInferenceRunner:
                 )
 
             # Push to database
-            db.push(db_objects)
+            db.push(outputs, job_id=job_index)
 
     def process_mini_batch(self, ids: list[str]) -> dict:
         """Process a mini-batch to produce raw output with meta-data."""
@@ -194,7 +200,7 @@ class BatchInferenceRunner:
                 pass
             t3 = time.perf_counter()
 
-            print(
+            logging.debug(
                 f"Time taken: {t3 - t0:.2f}s (prov: {t1-t0:.2f}s, regex cleanup: {t2-t1:.2f}s, alignment: {t3-t2:.2f}s)"
             )
 
@@ -209,7 +215,7 @@ def main(
     mini_batch_size: int,
     debug: bool,
 ):
-    logging_level = logging.DEBUG if debug else logging.ERROR
+    logging_level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(level=logging_level)
     runner = BatchInferenceRunner(id_pickle=id_pickle, batch_size=batch_size)
 

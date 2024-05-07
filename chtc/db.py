@@ -2,24 +2,19 @@ import logging
 import os
 
 import pandas as pd
-import tenacity
 from dotenv import load_dotenv
-from sqlalchemy import (
-    Integer,
-    String,
-    Text,
-    create_engine,
-    text,
-)
+from sqlalchemy import Integer, String, Text, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 load_dotenv()
 TURSO_DB_URL = os.getenv("TURSO_DB_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
+
 ENGINE = create_engine(
     f"sqlite+{TURSO_DB_URL}/?authToken={TURSO_AUTH_TOKEN}&secure=true",
     connect_args={"check_same_thread": False},
     echo=False,
+    pool_pre_ping=True,
 )
 
 
@@ -40,23 +35,9 @@ class Triplets(Base):
 
 def hard_reset() -> None:
     """Wipe the database and re-create."""
-    Base.metadata.drop_all(ENGINE)
-    Base.metadata.create_all(ENGINE)
-
-
-@tenacity.retry(wait=tenacity.wait_fixed(5), stop=tenacity.stop_after_attempt(3))
-def push(objects: list[Triplets]) -> None:
-    """Push data to Turso."""
-
-    with Session(ENGINE).no_autoflush as session:
-        for i, commit in enumerate(objects):
-            logging.info(f"Pushing {commit}")
-            session.merge(commit)
-            if (i + 1) % 100 == 0:  # commit every 100 items
-                session.flush()
-                session.commit()
-        session.flush()
-        session.commit()  # commit remaining items
+    with ENGINE.connect() as conn:
+        Base.metadata.drop_all(conn)
+        Base.metadata.create_all(conn)
 
 
 def get_all_processed_ids(job_index: int, max_size: int = 2000) -> list[str]:
@@ -68,6 +49,17 @@ def get_all_processed_ids(job_index: int, max_size: int = 2000) -> list[str]:
     with Session(ENGINE) as session:
         responses = session.execute(query).fetchall()
     return [r[0] for r in responses]
+
+
+def push(objects: list[dict], job_id: int) -> None:
+    """Push ORM objects to the database."""
+
+    with ENGINE.connect() as conn:
+        with Session(bind=conn) as session:
+            db_objects = [Triplets(**obj, job_id=job_id) for obj in objects]
+            session.add_all(db_objects)
+            session.commit()
+            logging.info(f"Pushed {len(objects)} objects to the database.")
 
 
 def export(table: str) -> pd.DataFrame | None:
