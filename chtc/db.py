@@ -2,7 +2,6 @@ import logging
 import os
 
 import pandas as pd
-import tenacity
 from dotenv import load_dotenv
 from sqlalchemy import (
     Integer,
@@ -50,7 +49,6 @@ def hard_reset() -> None:
         Base.metadata.create_all(conn)
 
 
-@tenacity.retry(wait=tenacity.wait_fixed(5), stop=tenacity.stop_after_attempt(3))
 def push(objects: list[Triplets]) -> None:
     """Push data to Turso."""
 
