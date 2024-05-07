@@ -10,6 +10,7 @@ load_dotenv()
 TURSO_DB_URL = os.getenv("TURSO_DB_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
+
 ENGINE = create_engine(
     f"sqlite+{TURSO_DB_URL}/?authToken={TURSO_AUTH_TOKEN}&secure=true",
     connect_args={"check_same_thread": False},
@@ -46,8 +47,9 @@ def get_all_processed_ids(job_index: int, max_size: int = 2000) -> list[str]:
     query = text(
         f"SELECT id FROM triplets WHERE job_id = {job_index} LIMIT {max_size};"
     )
-    with Session(ENGINE) as session:
-        responses = session.execute(query).fetchall()
+    with ENGINE.connect() as conn:
+        with Session(bind=conn) as session:
+            responses = session.execute(query).fetchall()
     return [r[0] for r in responses]
 
 
@@ -60,6 +62,7 @@ def push(objects: list[dict], job_id: int) -> None:
             session.add_all(db_objects)
             session.commit()
             logging.info(f"Pushed {len(objects)} objects to the database.")
+            ENGINE.dispose()  # Workaround for HRANA_WEBSOCKET_ERROR for now...
 
 
 def export(table: str) -> pd.DataFrame | None:
