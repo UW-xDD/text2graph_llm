@@ -7,7 +7,6 @@ import time
 
 import db
 import vllm
-from sqlalchemy.orm import Session
 from tqdm import tqdm
 
 from text2graph.alignment import AlignmentHandler
@@ -63,8 +62,6 @@ class BatchInferenceRunner:
         self.mixtral_prompt_template = "<s> [INST] {system} {user} [/INST] Model answer</s> [INST] Reply the output json only, do not provide any explanation or notes. [/INST]"
         self.infrastructure_loaded = True
 
-        self.db_engine = db.get_engine()
-
     def run(self, job_index: int, mini_batch_size: int = 200) -> None:
         """Run the job in mini-batches."""
 
@@ -81,7 +78,6 @@ class BatchInferenceRunner:
             self.load_infrastructure()
 
         # Mini-batching
-        db_objects = []
         while len(batch_ids) > 0:
             logging.info(
                 f"Remaining {len(batch_ids)} paragraphs to process in this batch."
@@ -95,19 +91,13 @@ class BatchInferenceRunner:
             # Outputs contain post-processed triplets (with provenance)
             outputs = self.post_process_with_prov(**intermediate_outputs)
 
-            # Create database ORM objects.
-            db_objects.extend(
-                [db.Triplets(**output, job_id=job_index) for output in outputs]
-            )
-
             # Create unprocessed (failed) ids in DB and push
-            processed_ids = [db_object.id for db_object in db_objects]
+            processed_ids = [output["id"] for output in outputs]
             unprocessed_ids = [id for id in mini_batch_ids if id not in processed_ids]
             for id in unprocessed_ids:
-                db_objects.append(
-                    db.Triplets(
+                outputs.append(
+                    dict(
                         id=id,
-                        job_id=job_index,
                         hashed_text="NA",
                         paper_id="NA",
                         triplets="NA",
@@ -115,10 +105,7 @@ class BatchInferenceRunner:
                 )
 
             # Push to database
-            with Session(self.db_engine) as session:
-                session.add_all(db_objects)
-                session.commit()
-            logging.info(f"Pushed {len(db_objects)} objects to Turso.")
+            db.push(outputs, job_id=job_index)
 
     def process_mini_batch(self, ids: list[str]) -> dict:
         """Process a mini-batch to produce raw output with meta-data."""

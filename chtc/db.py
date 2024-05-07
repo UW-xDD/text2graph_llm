@@ -9,14 +9,12 @@ load_dotenv()
 TURSO_DB_URL = os.getenv("TURSO_DB_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
-
-def get_engine():
-    return create_engine(
-        f"sqlite+{TURSO_DB_URL}/?authToken={TURSO_AUTH_TOKEN}&secure=true",
-        connect_args={"check_same_thread": False},
-        echo=False,
-        pool_pre_ping=True,
-    )
+ENGINE = create_engine(
+    f"sqlite+{TURSO_DB_URL}/?authToken={TURSO_AUTH_TOKEN}&secure=true",
+    connect_args={"check_same_thread": False},
+    echo=False,
+    pool_pre_ping=True,
+)
 
 
 class Base(DeclarativeBase):
@@ -36,8 +34,7 @@ class Triplets(Base):
 
 def hard_reset() -> None:
     """Wipe the database and re-create."""
-    engine = get_engine()
-    with engine.connect() as conn:
+    with ENGINE.connect() as conn:
         Base.metadata.drop_all(conn)
         Base.metadata.create_all(conn)
 
@@ -45,21 +42,29 @@ def hard_reset() -> None:
 def get_all_processed_ids(job_index: int, max_size: int = 2000) -> list[str]:
     """Get all processed ids from SQLITE."""
 
-    engine = get_engine()
     query = text(
         f"SELECT id FROM triplets WHERE job_id = {job_index} LIMIT {max_size};"
     )
-    with Session(engine) as session:
+    with Session(ENGINE) as session:
         responses = session.execute(query).fetchall()
     return [r[0] for r in responses]
+
+
+def push(objects: list[dict], job_id: int) -> None:
+    """Push ORM objects to the database."""
+
+    with ENGINE.connect() as conn:
+        with Session(bind=conn) as session:
+            db_objects = [Triplets(**obj, job_id=job_id) for obj in objects]
+            session.add_all(db_objects)
+            session.commit()
 
 
 def export(table: str) -> pd.DataFrame | None:
     """Export a table from Turso to a DataFrame."""
 
     batch_size = 500
-    engine = get_engine()
-    with engine.connect() as conn:
+    with ENGINE.connect() as conn:
         total_rows = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).fetchone()
         if total_rows is None:
             return None
