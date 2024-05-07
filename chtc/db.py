@@ -62,7 +62,8 @@ def push(objects: list[dict], job_id: int) -> None:
             session.add_all(db_objects)
             session.commit()
             logging.info(f"Pushed {len(objects)} objects to the database.")
-            ENGINE.dispose()  # Workaround for HRANA_WEBSOCKET_ERROR for now...
+
+    ENGINE.dispose()  # Workaround for HRANA_WEBSOCKET_ERROR for now...
 
 
 def export(table: str) -> pd.DataFrame | None:
