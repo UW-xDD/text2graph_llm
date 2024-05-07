@@ -7,6 +7,7 @@ import time
 
 import db
 import vllm
+from sqlalchemy.orm import Session
 from tqdm import tqdm
 
 from text2graph.alignment import AlignmentHandler
@@ -62,6 +63,8 @@ class BatchInferenceRunner:
         self.mixtral_prompt_template = "<s> [INST] {system} {user} [/INST] Model answer</s> [INST] Reply the output json only, do not provide any explanation or notes. [/INST]"
         self.infrastructure_loaded = True
 
+        self.db_engine = db.get_engine()
+
     def run(self, job_index: int, mini_batch_size: int = 200) -> None:
         """Run the job in mini-batches."""
 
@@ -112,7 +115,10 @@ class BatchInferenceRunner:
                 )
 
             # Push to database
-            db.push(db_objects)
+            with Session(self.db_engine) as session:
+                session.add_all(db_objects)
+                session.commit()
+            logging.info(f"Pushed {len(db_objects)} objects to Turso.")
 
     def process_mini_batch(self, ids: list[str]) -> dict:
         """Process a mini-batch to produce raw output with meta-data."""
@@ -207,7 +213,7 @@ class BatchInferenceRunner:
                 pass
             t3 = time.perf_counter()
 
-            print(
+            logging.debug(
                 f"Time taken: {t3 - t0:.2f}s (prov: {t1-t0:.2f}s, regex cleanup: {t2-t1:.2f}s, alignment: {t3-t2:.2f}s)"
             )
 

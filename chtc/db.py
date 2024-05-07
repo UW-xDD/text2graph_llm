@@ -1,4 +1,3 @@
-import logging
 import os
 
 import pandas as pd
@@ -41,19 +40,6 @@ def hard_reset() -> None:
     with engine.connect() as conn:
         Base.metadata.drop_all(conn)
         Base.metadata.create_all(conn)
-
-
-def push(objects: list[Triplets]) -> None:
-    """Push data to Turso."""
-
-    engine = get_engine()
-
-    # Manually control flushing and committing to avoid memory issues
-    with Session(engine) as session:
-        session.add_all(objects)
-        session.commit()
-
-    logging.info(f"Pushed {len(objects)} objects to Turso.")
 
 
 def get_all_processed_ids(job_index: int, max_size: int = 2000) -> list[str]:
