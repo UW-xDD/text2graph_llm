@@ -1,3 +1,4 @@
+import logging
 import os
 
 import pandas as pd
@@ -58,6 +59,7 @@ def push(objects: list[dict], job_id: int) -> None:
             db_objects = [Triplets(**obj, job_id=job_id) for obj in objects]
             session.add_all(db_objects)
             session.commit()
+            logging.info(f"Pushed {len(objects)} objects to the database.")
 
 
 def export(table: str) -> pd.DataFrame | None:
