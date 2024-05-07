@@ -16,11 +16,15 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 load_dotenv()
 TURSO_DB_URL = os.getenv("TURSO_DB_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
-ENGINE = create_engine(
-    f"sqlite+{TURSO_DB_URL}/?authToken={TURSO_AUTH_TOKEN}&secure=true",
-    connect_args={"check_same_thread": False},
-    echo=False,
-)
+
+
+def get_engine():
+    return create_engine(
+        f"sqlite+{TURSO_DB_URL}/?authToken={TURSO_AUTH_TOKEN}&secure=true",
+        connect_args={"check_same_thread": False},
+        echo=False,
+        pool_pre_ping=True,
+    )
 
 
 class Base(DeclarativeBase):
@@ -40,15 +44,17 @@ class Triplets(Base):
 
 def hard_reset() -> None:
     """Wipe the database and re-create."""
-    Base.metadata.drop_all(ENGINE)
-    Base.metadata.create_all(ENGINE)
+    engine = get_engine()
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
 
 
 @tenacity.retry(wait=tenacity.wait_fixed(5), stop=tenacity.stop_after_attempt(3))
 def push(objects: list[Triplets]) -> None:
     """Push data to Turso."""
 
-    with Session(ENGINE).no_autoflush as session:
+    engine = get_engine()
+    with Session(engine).no_autoflush as session:
         for i, commit in enumerate(objects):
             logging.info(f"Pushing {commit}")
             session.merge(commit)
@@ -62,10 +68,11 @@ def push(objects: list[Triplets]) -> None:
 def get_all_processed_ids(job_index: int, max_size: int = 2000) -> list[str]:
     """Get all processed ids from SQLITE."""
 
+    engine = get_engine()
     query = text(
         f"SELECT id FROM triplets WHERE job_id = {job_index} LIMIT {max_size};"
     )
-    with Session(ENGINE) as session:
+    with Session(engine) as session:
         responses = session.execute(query).fetchall()
     return [r[0] for r in responses]
 
@@ -74,7 +81,8 @@ def export(table: str) -> pd.DataFrame | None:
     """Export a table from Turso to a DataFrame."""
 
     batch_size = 500
-    with ENGINE.connect() as conn:
+    engine = get_engine()
+    with engine.connect() as conn:
         total_rows = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).fetchone()
         if total_rows is None:
             return None
