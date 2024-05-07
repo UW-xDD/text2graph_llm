@@ -39,8 +39,12 @@ class BatchInferenceRunner:
         self.id_pickle = id_pickle
         # Do not change across runs, it will mess up indexing
         self.batch_size = batch_size
+        self.infrastructure_loaded = False
 
-        # Infrastructure
+    def load_infrastructure(self):
+        """Load the infrastructure for the runner."""
+
+        # Delay loading of the infrastructure to allow quick fail (e.g., batch already processed)
         self.weaviate_client = get_weaviate_client()
         self.prompt_handler = PromptHandlerV3()
         self.alignment_handler = AlignmentHandler.load(
@@ -56,6 +60,7 @@ class BatchInferenceRunner:
             temperature=0, max_tokens=2048, stop=["[/INST]", "[INST]"]
         )
         self.mixtral_prompt_template = "<s> [INST] {system} {user} [/INST] Model answer</s> [INST] Reply the output json only, do not provide any explanation or notes. [/INST]"
+        self.infrastructure_loaded = True
 
     def run(self, job_index: int, mini_batch_size: int = 200) -> None:
         """Run the job in mini-batches."""
@@ -63,6 +68,14 @@ class BatchInferenceRunner:
         batch_ids = get_paragraph_ids(
             job_index, self.batch_size, ids_pickle=self.id_pickle
         )
+
+        # Faster exit condition
+        if not batch_ids:
+            logging.info(f"Batch {job_index} already processed.")
+            return
+
+        if not self.infrastructure_loaded:
+            self.load_infrastructure()
 
         # Mini-batching
         db_objects = []
