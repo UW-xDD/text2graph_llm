@@ -55,6 +55,7 @@ class BatchInferenceRunner:
             dtype="float16",
             tensor_parallel_size=1,
             enforce_eager=True,
+            disable_custom_all_reduce=True,
         )
         self.sampling_params = vllm.SamplingParams(
             temperature=0, max_tokens=2048, stop=["[/INST]", "[INST]"]
