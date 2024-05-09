@@ -1,3 +1,5 @@
+*.db
+*.sqlite3
 geoarchive_paragraph_ids.pkl
 api/data/
 evals/
