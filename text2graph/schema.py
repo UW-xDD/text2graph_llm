@@ -45,6 +45,7 @@ class Provenance(BaseModel):
 class Paragraph(BaseModel):
     """Enriched Ask-xDD Retriever results."""
 
+    id: str
     paper_id: str
     preprocessor_id: str
     doc_type: str
