@@ -69,32 +69,55 @@ class Retriever:
 
     ASK_XDD_URL = os.getenv("ASK_XDD_URL")
 
-    def __init__(self, topic: str = "criticalmaas", version: str = "0.0.3"):
+    def __init__(self, topic: str = "geoarchive", version: str = "0.0.3"):
         self.topic = topic
         self.version = version
+        self.client = get_weaviate_client()
 
     def query(self, query: str, top_k: int) -> list[Paragraph]:
         """Query the AskXDD API and return the response."""
 
-        headers = {
-            "Content-Type": "application/json",
-            "Api-Key": os.getenv("ASK_XDD_APIKEY"),
-        }
-        data = {
-            "topic": self.topic,
-            "question": query,
-            "top_k": top_k,
-        }
-
-        response = requests.post(
-            f"{self.ASK_XDD_URL}/hybrid", headers=headers, json=data
+        results = self.client.query.get(
+            "Paragraph",
+            [
+                "text_content",
+                "paper_id",
+                "preprocessor_id",
+                "hashed_text",
+                "doc_type",
+                "topic_list",
+                "cosmos_object_id",
+            ],
+        ).with_additional(["id", "distance"])
+        results = results.with_where(
+            {
+                "path": ["topic_list"],
+                "operator": "ContainsAny",
+                "valueText": [self.topic],
+            }
         )
-        response.raise_for_status()
-        paragraphs = response.json()
-        for paragraph in paragraphs:
-            paragraph["url"] = self.get_url(paragraph["paper_id"])
-            paragraph["provenance"] = self.get_provenance(paragraph)
-        return [Paragraph(**p) for p in paragraphs]
+        results = results.with_near_text({"concepts": [query]})
+        results = results.with_limit(top_k).do()
+
+        paragraphs = []
+        for result in results["data"]["Get"]["Paragraph"]:
+            data = dict(
+                id=result["_additional"]["id"],
+                paper_id=result["paper_id"],
+                preprocessor_id=result["preprocessor_id"],
+                doc_type=result["doc_type"],
+                topic_list=result["topic_list"],
+                text_content=result["text_content"],
+                hashed_text=result["hashed_text"],
+                cosmos_object_id=result["cosmos_object_id"],
+                distance=result["_additional"]["distance"],
+                url=self.get_url(result["paper_id"]),
+            )
+
+            paragraph = Paragraph(provenance=self.get_provenance(data), **data)
+            paragraphs.append(paragraph)
+
+        return paragraphs
 
     def get_url(self, paper_id: str) -> str | None:
         """Get the URL for a paper in the XDD database."""
