@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import sqlite3
 from enum import Enum
 from functools import partial
 
@@ -337,6 +338,38 @@ async def llm_graph_from_search(
     logging.info(paragraphs)
 
     graph = merge_graphs(graphs)
+
+    if ttl:
+        return to_ttl(graph)
+    return graph
+
+
+def get_graph_from_cache(ids: list[str] | tuple[str]) -> GraphOutput:
+    """Get cached graph from sqlite database."""
+
+    GRAPH_CACHE = os.getenv("GRAPH_SQLITE")
+    assert GRAPH_CACHE is not None, "GRAPH_SQLITE environment variable must be set."
+
+    with sqlite3.connect(GRAPH_CACHE) as conn:
+        cursor = conn.cursor()
+        formatted_ids = ", ".join([f"'{id}'" for id in ids])
+        cursor.execute(f"SELECT triplets FROM triplets WHERE id IN ({formatted_ids});")
+        rows = cursor.fetchall()
+
+    return merge_graphs([GraphOutput.model_validate_json(row[0]) for row in rows])
+
+
+async def fast_llm_graph_from_search(
+    query: str, top_k: int, hydrate: bool = False, ttl: bool = True
+) -> str | GraphOutput:
+    """Business logic layer for llm graph extraction from search using locally cached."""
+
+    r = Retriever()
+    paragraphs = r.query(query, top_k=top_k)
+    graph = get_graph_from_cache([paragraph.id for paragraph in paragraphs])
+
+    if hydrate:
+        await graph.hydrate(client=RateLimitedClient(interval=1.2))
 
     if ttl:
         return to_ttl(graph)
