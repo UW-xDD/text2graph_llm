@@ -314,7 +314,7 @@ async def ask_llm(
 
 
 async def llm_graph_from_search(
-    query: str, top_k: int, model: str, ttl: bool = True
+    query: str, top_k: int, model: str, ttl: bool = True, hydrate: bool = False
 ) -> str | GraphOutput:
     """Business logic layer for llm graph extraction from search."""
 
@@ -330,7 +330,7 @@ async def llm_graph_from_search(
             to_triplets=True,
             doc_ids=[
                 paragraph.paper_id
-            ],  # TODO: Check with Iain to see if this is the intended usage. A bit weird here because a paragraph can only comes from one document, why we need a list?
+            ],  # TODO: Confirm with Iain if this is the correct usage. It's unclear why a paragraph from one document requires a list.
             provenance=paragraph.provenance,
         )
         graphs.append(graph)
@@ -338,6 +338,8 @@ async def llm_graph_from_search(
     logging.info(paragraphs)
 
     graph = merge_graphs(graphs)
+    if hydrate:
+        await graph.hydrate(client=RateLimitedClient(interval=1.2))
 
     if ttl:
         return to_ttl(graph)
@@ -349,6 +351,7 @@ def get_graph_from_cache(ids: list[str] | tuple[str]) -> GraphOutput:
 
     GRAPH_CACHE = os.getenv("GRAPH_SQLITE")
     assert GRAPH_CACHE is not None, "GRAPH_SQLITE environment variable must be set."
+    print(GRAPH_CACHE)
 
     with sqlite3.connect(GRAPH_CACHE) as conn:
         cursor = conn.cursor()
@@ -360,7 +363,7 @@ def get_graph_from_cache(ids: list[str] | tuple[str]) -> GraphOutput:
 
 
 async def fast_llm_graph_from_search(
-    query: str, top_k: int, hydrate: bool = False, ttl: bool = True
+    query: str, top_k: int, ttl: bool = True, hydrate: bool = False
 ) -> str | GraphOutput:
     """Business logic layer for llm graph extraction from search using locally cached."""
 
