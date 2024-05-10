@@ -20,7 +20,7 @@ Explore our [interactive demo](http://cosmos0002.chtc.wisc.edu:8510/)
 
 ## Quick start for using API endpoint
 
-Please note that the demo is currently operating on-demand, which may result in longer wait times due to the time-consuming LLM extraction process. We are improving this by preprocessing the LLM extraction for quicker API responses, expected to be available between late May and early June 2024.
+We are using the cached LLM graph for faster processing. However, the hydration step (retrieving entity details) is still processed in real time; we are working on caching this step as well.
 
 ```python
 import requests
@@ -31,9 +31,9 @@ API_KEY = "Email jason.lo@wisc.edu to request an API key if you need access."
 headers = {"Content-Type": "application/json", "Api-Key": API_KEY}
 data = {
     "query": "Gold mines in Nevada.",
-    "model": "mixtral",  # Current supported model is `mixtral` (https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1)
-    "top_k": 1,  # Do not use anything higher than 3 for now.
+    "top_k": 1,
     "ttl": True,  # Return in TTL format or not
+    "hydrate": False,  # Get additional data from external services (e.g., GPS). Due to rate limit, it is very slow. Do not use with top_k > 3
 }
 
 response = requests.post(API_ENDPOINT, headers=headers, json=data)
