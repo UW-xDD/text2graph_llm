@@ -1,10 +1,17 @@
+import os
+
 import pytest
+from dotenv import load_dotenv
 
 from text2graph.alignment import AlignmentHandler
 from text2graph.prompt import PromptHandlerV3
-from dotenv import load_dotenv
 
 load_dotenv()
+
+
+@pytest.fixture
+def api_auth_header() -> dict:
+    return {"Api-Key": os.getenv("API_KEY")}
 
 
 @pytest.fixture
