@@ -5,6 +5,9 @@ RUN pip install --no-cache-dir torch==2.2.2+cpu -f https://download.pytorch.org/
 
 WORKDIR /app
 
+# Copy graph cache (not sure why volume mount don't work)
+COPY app_data/* /app/data/
+
 # Install text2graph
 COPY text2graph ./text2graph
 COPY pyproject.toml .

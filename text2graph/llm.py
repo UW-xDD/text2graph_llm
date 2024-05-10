@@ -359,7 +359,18 @@ def get_graph_from_cache(ids: list[str] | tuple[str]) -> GraphOutput:
         cursor.execute(f"SELECT triplets FROM triplets WHERE id IN ({formatted_ids});")
         rows = cursor.fetchall()
 
-    return merge_graphs([GraphOutput.model_validate_json(row[0]) for row in rows])
+    graphs = []
+    for row in rows:
+        try:
+            # Some extraction are empty, skipping those.
+            if not json.loads(row[0])["triplets"]:
+                continue
+            graphs.append(GraphOutput.model_validate_json(row[0]))
+        except Exception as e:
+            logging.error(f"Error loading graph from cache: {e}")
+            pass
+
+    return merge_graphs(graphs)
 
 
 async def fast_llm_graph_from_search(
