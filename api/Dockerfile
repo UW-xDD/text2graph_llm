@@ -5,6 +5,9 @@ RUN pip install --no-cache-dir torch==2.2.2+cpu -f https://download.pytorch.org/
 
 WORKDIR /app
 
+# Copy graph cache (not sure why volume mount don't work)
+COPY app_data/* /app/data/
+
 # API
 COPY api/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt

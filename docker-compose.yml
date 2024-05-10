@@ -22,8 +22,6 @@ services:
     ports:
       - $API_PORT:4502
     env_file: .env
-    volumes:
-      - ./data/data_240509.sqlite3:/app/data/data_240509.sqlite3
 
   demo:
     # image: ghcr.io/jasonlo/text2graph_llm_demo:latest
@@ -32,5 +30,3 @@ services:
     ports:
       - $DEMO_PORT:8501
     env_file: .env
-    volumes:
-      - ./data/data_240509.sqlite3:/app/data/data_240509.sqlite3
