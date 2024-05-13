@@ -2,31 +2,40 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
+from datetime import timezone
+UTC = timezone.utc
 from uuid import UUID, uuid4
 
 import httpx
-from pydantic import AnyUrl, BaseModel, BeforeValidator, Field
+from pydantic import AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, field_serializer
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
+from typing import Any
 
 from text2graph import macrostrat
 from text2graph.geolocation.geocode import get_gps, RateLimitedClient
 from text2graph.geolocation.macrostrat import StratNameGPSLookup
 
 
+SerializableUUID = Annotated[UUID, PlainSerializer(lambda x: str(x), return_type=str)]
+
 class Provenance(BaseModel):
     """class for collecting data source information"""
 
-    id: UUID = Field(default_factory=uuid4)
+    id: SerializableUUID = Field(default_factory=uuid4)
     source_name: str
     source_url: str | None = None
     source_version: str | int | float | None = None
     requested: datetime = datetime.now(UTC)
-    additional_values: dict[str, str | float | int | list[str] | None] = Field(
+    additional_values: dict[str, Any] = Field(
         default_factory=dict
     )
     previous: Provenance | None = None
+
+    @field_serializer('requested')
+    def serialize_id(self, requested: datetime, _info):
+        return requested.isoformat()
 
     def find(self, source_name: str) -> Provenance | None:
         """

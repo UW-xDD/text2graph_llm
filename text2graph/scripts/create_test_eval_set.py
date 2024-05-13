@@ -4,13 +4,16 @@ from pathlib import Path
 import typer
 import sqlite3
 import asyncio
+from dotenv import load_dotenv
 from typing import Any
 from tqdm.auto import tqdm
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel
 
 from text2graph.schema import GraphOutput, RelationshipTriplet
 from text2graph.geolocation.geocode import RateLimitedClient
 
+
+load_dotenv()
 
 COLUMN_LOOKUP = {
     "index": 0,
@@ -21,6 +24,20 @@ COLUMN_LOOKUP = {
     "triplets": 5,
 }
 
+async def run_all_triplets(filtered_graphoutputs, client, output_path):
+
+    exceptions = await asyncio.gather(
+        *[hydrate_and_split_one_graphoutput(
+            go_idx=i,
+            output_path=output_path,
+            go=go,
+            client=client
+        ) 
+        for i, go in enumerate(filtered_graphoutputs)],
+        return_exceptions=True
+    )
+    return exceptions
+
 
 def main(db_path: Path, output_path: Path, limit: int | None = None) -> None:
     if not db_path:
@@ -30,11 +47,18 @@ def main(db_path: Path, output_path: Path, limit: int | None = None) -> None:
     if limit:
         triplet_db_tuples = triplet_db_tuples[:limit]
     filtered_graphoutputs, _ = filter_triplet_db_tuples(triplet_db_tuples)
-    keepers, notkeepers = asyncio.run(hydrate_and_split_triplets(filtered_graphoutputs))
+    client=RateLimitedClient(interval=1.5)
+    asyncio.run(run_all_triplets(filtered_graphoutputs, client, output_path))
+    # keepers, notkeepers = asyncio.run(hydrate_and_split_triplets(
+    # filtered_graphoutputs=filtered_graphoutputs,
+    #client=RateLimitedClient(interval=1.5)
+    #    )
+    #)
 
-    for data in [keepers, notkeepers]:
-        with open(output_path, "w") as f:
-            json.dump(data, f)
+    #for data in [keepers]: #, notkeepers]:
+    #    print(f"dumping {len(data)} triplets to {output_path}")
+    #    with open(output_path, "w") as f:
+    #        json.dump(data, f)
 
 
 def get_db_cursor(db_path: str) -> sqlite3.Cursor:
@@ -82,20 +106,46 @@ def filter_triplet_db_tuples(
     return filtered_graphoutputs, validation_error_indexes
 
 
+async def hydrate_and_split_one_graphoutput(
+    go_idx: int,
+    output_path: Path,
+    go: GraphOutput,
+    client: RateLimitedClient
+) -> None:
+    keeper_triplets = []
+    not_keeper_triplets = []
+    keeper_counts = []
+    not_keeper_counts = []
+    await go.hydrate(client=client)
+    for triplet in go.triplets:
+        c = triplet.model_dump()
+        if triplet.object.t_units and triplet.object.t_units >= 1:
+            keeper_triplets.append(c)
+        else:
+            not_keeper_triplets.append(c)
+
+    for name, data in zip(["keeper", "not_keeper"], [keeper_triplets, not_keeper_triplets]):
+        async with aiof.open(output_path / go_idx + "_" + name) as out:
+            await out.write(data)
+            await out.flush()
+
+
 async def hydrate_and_split_triplets(
     filtered_graphoutputs: list[GraphOutput],
+    client: RateLimitedClient
 ) -> tuple[list[RelationshipTriplet], list[RelationshipTriplet]]:
     keeper_triplets = []
     not_keeper_triplets = []
     keeper_counts = []
     not_keeper_counts = []
-    for i, go in tqdm(enumerate(filtered_graphoutputs[::1000])):
-        await go.hydrate(client=RateLimitedClient(interval=1.5))
+    for i, go in tqdm(enumerate(filtered_graphoutputs)):
+        await go.hydrate(client=client)
         for triplet in go.triplets:
+            c = triplet.model_dump()
             if triplet.object.t_units and triplet.object.t_units >= 1:
-                keeper_triplets.append(triplet)
+                keeper_triplets.append(c)
             else:
-                not_keeper_triplets.append(triplet)
+                not_keeper_triplets.append(c)
 
         keeper_counts.append(len(keeper_triplets))
         not_keeper_counts.append(len(not_keeper_triplets))
