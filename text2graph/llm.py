@@ -360,11 +360,17 @@ def get_graph_from_cache(
     # Validate to GraphOutput
     graphs = []
     for row in rows:
+        try:
+            triplets = json.loads(row[3])["triplets"]
+        except json.JSONDecodeError:
+            logging.error(f"Error loading graph from cache: {row}")
+            continue
+
         data = {
             "id": row[0],
             "paper_id": row[1],
             "hashed_text": row[2],
-            "triplets": json.loads(row[3])["triplets"],
+            "triplets": triplets,
         }
 
         try:
