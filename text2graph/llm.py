@@ -52,13 +52,6 @@ def to_model(model: str) -> OpenSourceModel | OpenAIModel | AnthropicModel:
         raise ValueError(f"Model '{model}' is not supported.")
 
 
-def merge_graphs(graphs: list[GraphOutput]) -> GraphOutput:
-    """Merge graphs."""
-
-    all_triplets = [triplet for graph in graphs for triplet in graph.triplets]
-    return GraphOutput(triplets=all_triplets)
-
-
 def query_openai(
     model: OpenAIModel, messages: list[dict], temperature: float = 0.0
 ) -> str:
@@ -315,7 +308,7 @@ async def ask_llm(
 
 async def llm_graph_from_search(
     query: str, top_k: int, model: str, ttl: bool = True, hydrate: bool = False
-) -> str | GraphOutput:
+) -> list[str] | list[GraphOutput]:
     """Business logic layer for llm graph extraction from search."""
 
     r = Retriever()
@@ -337,16 +330,19 @@ async def llm_graph_from_search(
 
     logging.info(paragraphs)
 
-    graph = merge_graphs(graphs)
-    if hydrate:
-        await graph.hydrate(client=RateLimitedClient(interval=1.2))
+    for graph in graphs:
+        if hydrate:
+            await graph.hydrate(client=RateLimitedClient(interval=1.2))
 
-    if ttl:
-        return to_ttl(graph)
-    return graph
+    if not ttl:
+        return graphs
+
+    return [to_ttl(graph) for graph in graphs]
 
 
-def get_graph_from_cache(ids: list[str] | tuple[str]) -> GraphOutput:
+def get_graph_from_cache(
+    ids: list[str] | tuple[str],
+) -> list[GraphOutput]:
     """Get cached graph from sqlite database."""
 
     GRAPH_CACHE = os.getenv("GRAPH_SQLITE")
@@ -356,35 +352,59 @@ def get_graph_from_cache(ids: list[str] | tuple[str]) -> GraphOutput:
     with sqlite3.connect(GRAPH_CACHE) as conn:
         cursor = conn.cursor()
         formatted_ids = ", ".join([f"'{id}'" for id in ids])
-        cursor.execute(f"SELECT triplets FROM triplets WHERE id IN ({formatted_ids});")
+        cursor.execute(
+            f"SELECT id, paper_id, hashed_text, triplets FROM triplets WHERE id IN ({formatted_ids});"
+        )
         rows = cursor.fetchall()
 
+    # Validate to GraphOutput
     graphs = []
     for row in rows:
+        data = {
+            "id": row[0],
+            "paper_id": row[1],
+            "hashed_text": row[2],
+            "triplets": json.loads(row[3])["triplets"],
+        }
+
         try:
-            # Some extraction are empty, skipping those.
-            if not json.loads(row[0])["triplets"]:
-                continue
-            graphs.append(GraphOutput.model_validate_json(row[0]))
+            graphs.append(GraphOutput.model_validate(data))
         except Exception as e:
             logging.error(f"Error loading graph from cache: {e}")
             pass
 
-    return merge_graphs(graphs)
+    return graphs
 
 
 async def fast_llm_graph_from_search(
-    query: str, top_k: int, ttl: bool = True, hydrate: bool = False
-) -> str | GraphOutput:
+    query: str,
+    top_k: int,
+    ttl: bool = True,
+    hydrate: bool = False,
+    with_text: bool = False,
+) -> list[str] | list[GraphOutput]:
     """Business logic layer for llm graph extraction from search using locally cached."""
 
     r = Retriever()
     paragraphs = r.query(query, top_k=top_k)
-    graph = get_graph_from_cache([paragraph.id for paragraph in paragraphs])
+    id2text = {paragraph.id: paragraph.text_content for paragraph in paragraphs}
 
-    if hydrate:
-        await graph.hydrate(client=RateLimitedClient(interval=1.2))
+    graphs = get_graph_from_cache([paragraph.id for paragraph in paragraphs])
 
-    if ttl:
-        return to_ttl(graph)
-    return graph
+    gps_client = RateLimitedClient(interval=1.2)
+    for graph in graphs:
+        # Get text
+        if with_text and graph.id:
+            try:
+                graph.text_content = id2text[graph.id]
+            except KeyError:
+                continue
+        # Hydrate
+        if hydrate:
+            await graph.hydrate(client=gps_client)
+
+    if not ttl:
+        return graphs
+
+    # TTL returns
+    return [to_ttl(graph) for graph in graphs]
