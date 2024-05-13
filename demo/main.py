@@ -2,11 +2,16 @@ import asyncio
 import logging
 
 import streamlit as st
+from streamlit_extras.stylable_container import stylable_container
 
+from text2graph.gkm.gkm import to_ttl
 from text2graph.llm import fast_llm_graph_from_search
 
 logging.basicConfig(level=logging.INFO)
 st.title("Ask-XDD: Location extraction demo")
+
+# CSS
+custom_code_block_css = "code {white-space: pre-wrap !important;}"
 
 # Sidebar
 with st.sidebar:
@@ -45,9 +50,23 @@ if st.button("Run"):
         )
         st.stop()
     with st.spinner("Running models..."):
+        assert hydrate is not None
+        assert ttl is not None
         outputs = fast_llm_graph_from_search(
-            query=query, top_k=top_k, hydrate=hydrate, ttl=ttl
+            query=query, top_k=top_k, hydrate=hydrate, ttl=False, with_text=True
         )
         outputs = asyncio.run(outputs)
-        logging.info(outputs)
-        st.code(outputs)
+
+        for i, output in enumerate(outputs):
+            # Source Text
+            st.text_area("Text", output.text_content, height=300, key=i)
+
+            # TTL
+            if ttl:
+                with st.expander("TTL"):
+                    st.code(to_ttl(output))
+
+            # GraphOutput
+            with st.expander("GraphOutput"):
+                with stylable_container("codeblock", custom_code_block_css):
+                    st.code(output)

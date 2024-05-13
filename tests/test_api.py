@@ -36,7 +36,7 @@ def test_slow_llm_graph(api_auth_header):
         },
     )
     assert response.status_code == 200
-    assert "@prefix" in response.json()
+    assert "@prefix" in response.json()[0]
 
 
 def test_llm_graph(api_auth_header):
@@ -51,4 +51,4 @@ def test_llm_graph(api_auth_header):
         },
     )
     assert response.status_code == 200
-    assert "@prefix" in response.json()
+    assert "@prefix" in response.json()[0]
