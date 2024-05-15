@@ -50,4 +50,6 @@ def test_with_text():
     )
 
     graph = graphs[0]
+    assert isinstance(graph, GraphOutput)
+    assert graph.text_content is not None
     assert len(graph.text_content) > 0

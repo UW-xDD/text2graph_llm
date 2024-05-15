@@ -1,7 +1,7 @@
 import asyncio
 
 from text2graph.llm import post_process
-from text2graph.schema import GraphOutput
+from text2graph.schema import GraphOutput, Stratigraphy
 
 SMITHVILLE = {
     "strat_name": "Smithville",
@@ -54,6 +54,7 @@ def test_post_processor(raw_llm_output, prompt_handler_v3):
 
     # Check `Smithville` is hydrated
     for triplet in graph.triplets:
+        assert isinstance(triplet.object, Stratigraphy)
         if triplet.object.strat_name == "Smithville":
             for k, v in SMITHVILLE.items():
                 assert getattr(triplet.object, k) == v

@@ -13,9 +13,12 @@
         "openhermes",
         "rdflib",
         "Shakopee",
+        "Smithville",
         "Spacy",
         "strat",
-        "stratname"
+        "stratname",
+        "subgp",
+        "ttls"
     ],
     "python.testing.pytestArgs": [
         "tests"
