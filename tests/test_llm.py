@@ -1,6 +1,6 @@
 import asyncio
 
-from text2graph.llm import post_process
+from text2graph.llm import ask_llm, post_process
 from text2graph.schema import GraphOutput, Stratigraphy
 
 SMITHVILLE = {
@@ -75,3 +75,43 @@ def test_post_processor_with_alignment(
 
     assert graph is not None
     assert isinstance(graph, GraphOutput)
+
+
+def test_loc_to_stratname(stratname_alignment_handler, stratname_prompt_handler_v3):
+    graph = asyncio.run(
+        ask_llm(
+            text="Shakopee formation is in Minnesota.",
+            prompt_handler=stratname_prompt_handler_v3,
+            alignment_handler=stratname_alignment_handler,
+            model="gpt-4o",
+            hydrate=True,
+        )
+    )
+
+    assert graph is not None
+    assert isinstance(graph, GraphOutput)
+    assert graph.triplets[0].subject.name == "Minnesota"
+    assert graph.triplets[0].subject.lat is not None
+    assert graph.triplets[0].subject.lat > 40
+    assert graph.triplets[0].subject.lat < 50
+    assert graph.triplets[0].object.name == "Shakopee"
+
+
+def test_loc_to_mineral(mineral_alignment_handler, mineral_prompt_handler_v0):
+    graph = asyncio.run(
+        ask_llm(
+            text="There are plenty of 24k gold is in Minnesota.",
+            prompt_handler=mineral_prompt_handler_v0,
+            alignment_handler=mineral_alignment_handler,
+            model="gpt-4o",
+            hydrate=True,
+        )
+    )
+
+    assert graph is not None
+    assert isinstance(graph, GraphOutput)
+    assert graph.triplets[0].subject.name == "Minnesota"
+    assert graph.triplets[0].subject.lat is not None
+    assert graph.triplets[0].subject.lat > 40
+    assert graph.triplets[0].subject.lat < 50
+    assert graph.triplets[0].object.name == "gold"
