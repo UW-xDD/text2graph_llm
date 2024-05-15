@@ -50,6 +50,22 @@ def get_all_strat_names(long: bool = False) -> list[str]:
     return sorted(list(set([x[key] for x in data])))
 
 
+@cache
+def get_all_mineral_names(lower: bool = True) -> list[str]:
+    """Get all mineral names from macrostrat API."""
+
+    url = f"{BASE_URL}/defs/minerals?all"
+    r = requests.get(url)
+    r.raise_for_status()
+    data = r.json()["success"]["data"]
+    names = sorted(list(set([x["mineral"] for x in data])))
+
+    if not lower:
+        return names
+    return [name.lower() for name in names]
+
+
+@cache
 def get_all_intervals() -> list[dict]:
     """Get all stratigraphic intervals from macrostrat API."""
 
@@ -60,6 +76,7 @@ def get_all_intervals() -> list[dict]:
     return data
 
 
+@cache
 def get_all_lithologies() -> list[str]:
     """Get all lithologies from macrostrat API."""
 
@@ -70,6 +87,7 @@ def get_all_lithologies() -> list[str]:
     return sorted(list(set([x["name"] for x in data])))
 
 
+@cache
 def get_known_entities() -> dict:
     """Get known entities for annotations."""
     lithologies = get_all_lithologies()
@@ -113,8 +131,14 @@ async def get_lith_records(lith_name: str, exact: bool = False) -> list[dict]:
     return matches
 
 
-def _find_word_occurrences(text: str, search_word: str) -> list[dict]:
+def _find_word_occurrences(
+    text: str, search_word: str, ignore_case: bool = False
+) -> list[dict]:
     """Find all occurrences of a word in a given text and get its position of occurrence."""
+
+    if ignore_case:
+        search_word = search_word.lower()
+        text = text.lower()
 
     matches = [match for match in re.finditer(rf"\b{re.escape(search_word)}\b", text)]
     results = [
@@ -132,14 +156,18 @@ def _find_word_occurrences(text: str, search_word: str) -> list[dict]:
 
 
 @log_time
-def find_all_occurrences(text: str, words: list[str]) -> list[dict[str, str | int]]:
+def find_all_occurrences(
+    text: str, words: list[str], ignore_case: bool = False
+) -> list[dict[str, str | int]]:
     """Find all occurrences of a list of terms in a given text and get its position of occurrence."""
 
     occurrences = []
     for word in words:
         if word not in text:
             continue
-        this_occ = _find_word_occurrences(text=text, search_word=word)
+        this_occ = _find_word_occurrences(
+            text=text, search_word=word, ignore_case=ignore_case
+        )
         if this_occ:
             occurrences.extend(this_occ)
 
