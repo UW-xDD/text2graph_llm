@@ -1,8 +1,5 @@
-from text2graph.prompt import get_prompt_handler
-
-
-def test_strat_prompt_handler_v3(text):
-    handler = get_prompt_handler("stratname_v3")
+def test_strat_prompt_handler_v3(text, stratname_prompt_handler_v3):
+    handler = stratname_prompt_handler_v3
 
     sys_prompt = handler.get_system_prompt(text)
     assert sys_prompt is not None
@@ -18,8 +15,8 @@ def test_strat_prompt_handler_v3(text):
     assert messages[1]["content"] == user_prompt
 
 
-def test_mineral_prompt_handler_v0(text):
-    handler = get_prompt_handler("mineral_v0")
+def test_mineral_prompt_handler_v0(text, mineral_prompt_handler_v0):
+    handler = mineral_prompt_handler_v0
 
     sys_prompt = handler.get_system_prompt(text)
     assert sys_prompt is not None

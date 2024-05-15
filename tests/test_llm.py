@@ -31,9 +31,11 @@ SMITHVILLE = {
 }
 
 
-def test_post_processor(raw_llm_output, prompt_handler_v3):
+def test_post_processor(raw_llm_output, stratname_prompt_handler_v3):
     graph = asyncio.run(
-        post_process(raw_llm_output=raw_llm_output, prompt_handler=prompt_handler_v3)
+        post_process(
+            raw_llm_output=raw_llm_output, prompt_handler=stratname_prompt_handler_v3
+        )
     )
 
     assert graph is not None
@@ -61,13 +63,13 @@ def test_post_processor(raw_llm_output, prompt_handler_v3):
 
 
 def test_post_processor_with_alignment(
-    raw_llm_output, prompt_handler_v3, alignment_handler
+    raw_llm_output, stratname_prompt_handler_v3, stratname_alignment_handler
 ):
     graph = asyncio.run(
         post_process(
             raw_llm_output=raw_llm_output,
-            prompt_handler=prompt_handler_v3,
-            alignment_handler=alignment_handler,
+            prompt_handler=stratname_prompt_handler_v3,
+            alignment_handler=stratname_alignment_handler,
         )
     )
 

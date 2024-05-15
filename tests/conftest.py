@@ -3,8 +3,8 @@ import os
 import pytest
 from dotenv import load_dotenv
 
-from text2graph.alignment import AlignmentHandler
-from text2graph.prompt import StratPromptHandlerV3
+from text2graph.alignment import AlignmentHandler, EntityType
+from text2graph.prompt import get_prompt_handler
 
 load_dotenv()
 
@@ -25,10 +25,20 @@ def raw_llm_output() -> str:
 
 
 @pytest.fixture
-def prompt_handler_v3():
-    return StratPromptHandlerV3()
+def stratname_prompt_handler_v3():
+    return get_prompt_handler("stratname_v3")
 
 
 @pytest.fixture
-def alignment_handler():
-    return AlignmentHandler.load()
+def mineral_prompt_handler_v0():
+    return get_prompt_handler("mineral_v0")
+
+
+@pytest.fixture
+def stratname_alignment_handler():
+    return AlignmentHandler.load(EntityType.STRAT_NAME)
+
+
+@pytest.fixture
+def mineral_alignment_handler():
+    return AlignmentHandler.load(EntityType.MINERAL_NAME)
