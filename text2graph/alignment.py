@@ -1,4 +1,3 @@
-from enum import Enum
 from functools import cache
 from importlib.resources import files
 from pathlib import Path
@@ -7,13 +6,8 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import pairwise_cos_sim
 
-from text2graph.macrostrat import get_all_mineral_names, get_all_strat_names
+from text2graph.macrostrat import EntityType, get_all_mineral_names, get_all_strat_names
 from text2graph.usgs import CRITICAL_MINERALS
-
-
-class EntityType(Enum):
-    STRAT_NAME = "strat_name"
-    MINERAL_NAME = "mineral_name"
 
 
 class AlignmentHandler:
@@ -142,11 +136,14 @@ def _generate_known_entity_embeddings() -> None:
     usgs_minerals = CRITICAL_MINERALS
     all_minerals = list(set(macrostrat_minerals + usgs_minerals))
     AlignmentHandler(
-        entity_type=EntityType.MINERAL_NAME, known_entity_names=all_minerals
+        entity_type=EntityType.MINERAL, known_entity_names=all_minerals
     ).save()
 
 
 @cache
-def get_alignment_handler(entity_type: EntityType) -> AlignmentHandler:
+def get_alignment_handler(entity_type: EntityType | str) -> AlignmentHandler:
     """Get alignment handler for a given entity type."""
+
+    if isinstance(entity_type, str):
+        entity_type = EntityType(entity_type)
     return AlignmentHandler.load(entity_type=entity_type)

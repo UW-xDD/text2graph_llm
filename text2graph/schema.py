@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytz
-from pydantic import AnyUrl, BaseModel, BeforeValidator, Field
+from pydantic import AnyUrl, BaseModel, BeforeValidator, ConfigDict, Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
@@ -72,7 +72,10 @@ class Lithology(BaseModel):
     async def hydrate(self) -> None:
         """Hydrate Lithology from macrostrat."""
         try:
-            hit = await macrostrat.get_lith_records(self.name, exact=True)[0]
+            hit = await macrostrat.get_records(
+                entity_type=macrostrat.EntityType.LITHOLOGY, name=self.name, exact=True
+            )
+            hit = hit[0]
         except (ValueError, IndexError):
             logging.warning(f"No records found for lithology '{self.name}'")
             return
@@ -94,7 +97,8 @@ class Lithology(BaseModel):
 
 
 class Stratigraphy(BaseModel):
-    strat_name: str
+    model_config = ConfigDict(populate_by_name=True)
+    strat_name: str = Field(alias="name")
     strat_name_long: str | None = None
     rank: str | None = None
     strat_name_id: int | None = None
@@ -120,13 +124,21 @@ class Stratigraphy(BaseModel):
     ref_id: int | None = None
     provenance: Provenance | None = None
 
+    @property
+    def name(self) -> str:
+        return self.strat_name
+
     async def hydrate(self) -> None:
         """Hydrate Stratigraphy from macrostrat."""
         try:
-            hit = await macrostrat.get_strat_records(self.strat_name, exact=False)
+            hit = await macrostrat.get_records(
+                entity_type=macrostrat.EntityType.STRAT_NAME,
+                name=self.strat_name,
+                exact=False,
+            )
             hit = hit[0]
         except (ValueError, IndexError):
-            logging.info(f"No records found for stratigraphy '{self.strat_name}'")
+            logging.info(f"No records found for stratigraphy '{self.name}'")
             return
 
         macrostrat_version = hit.pop("macrostrat_version")
@@ -138,6 +150,48 @@ class Stratigraphy(BaseModel):
             source_name="Macrostrat",
             source_version=macrostrat_version,
             source_url=f"{macrostrat.BASE_URL}/defs/strat_names?strat_name_id={hit['strat_name_id']}",
+            previous=self.provenance,
+        )
+
+
+class Mineral(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    mineral: str = Field(alias="name")
+    mineral_id: int | None = None
+    mineral_type: str | None = None
+    formula: str | None = None
+    formula_tags: str | None = None
+    url: AnyUrl | None = None
+    hardness_min: int | None = None
+    hardness_max: int | None = None
+    crystal_form: str | None = None
+    mineral_color: str | None = None
+    lustre: str | None = None
+    provenance: Provenance | None = None
+
+    @property
+    def name(self) -> str:
+        return self.mineral
+
+    async def hydrate(self) -> None:
+        """Hydrate Mineral from macrostrat."""
+        try:
+            hit = await macrostrat.get_records(
+                entity_type=macrostrat.EntityType.MINERAL, name=self.name, exact=True
+            )
+            hit = hit[0]
+        except (ValueError, IndexError):
+            logging.warning(f"No records found for mineral '{self.name}'")
+            return
+
+        # Load data into model
+        for k, v in hit.items():
+            setattr(self, k, v)
+
+        self.provenance = Provenance(
+            source_name="Macrostrat",
+            source_url=f"{macrostrat.BASE_URL}/defs/minerals?mineral_id={hit['mineral_id']}",
             previous=self.provenance,
         )
 
@@ -189,18 +243,10 @@ class RelationshipTriplet(BaseModel):
         triplet = RelationshipTriples(subject=subject, object=object, predicate=predicate)
     """
 
-    subject: str | Location
+    subject: Location
     predicate: str  # relationship, str for now...
-    object: str | Stratigraphy
+    object: Stratigraphy | Mineral
     provenance: Provenance | None = None
-
-    def model_post_init(self, __context) -> None:
-        if isinstance(self.subject, str):
-            self.subject = Location(name=self.subject, provenance=self.provenance)
-        if isinstance(self.object, str):
-            self.object = Stratigraphy(
-                strat_name=self.object, provenance=self.provenance
-            )
 
 
 class GraphOutput(BaseModel):

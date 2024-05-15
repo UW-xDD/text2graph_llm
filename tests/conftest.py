@@ -41,4 +41,4 @@ def stratname_alignment_handler():
 
 @pytest.fixture
 def mineral_alignment_handler():
-    return AlignmentHandler.load(EntityType.MINERAL_NAME)
+    return AlignmentHandler.load(EntityType.MINERAL)

@@ -18,8 +18,16 @@ from text2graph.alignment import (
 from text2graph.askxdd import Retriever
 from text2graph.geolocation.geocode import RateLimitedClient
 from text2graph.gkm.gkm import to_ttl
+from text2graph.macrostrat import EntityType
 from text2graph.prompt import PromptHandler, StratPromptHandlerV3, get_prompt_handler
-from text2graph.schema import GraphOutput, Provenance, RelationshipTriplet, Stratigraphy
+from text2graph.schema import (
+    GraphOutput,
+    Location,
+    Mineral,
+    Provenance,
+    RelationshipTriplet,
+    Stratigraphy,
+)
 
 load_dotenv()
 
@@ -165,16 +173,25 @@ def query_anthropic(
 
 def to_triplet(
     triplet: dict,
-    subject_key: str,
-    object_key: str,
-    predicate_key: str,
-    llm_provenance: Provenance | None,
+    prompt_handler: PromptHandler,
+    llm_provenance: Provenance | None = None,
 ) -> RelationshipTriplet:
     """Inject attributes into RelationshipTriples model. Must be {"subject": "x", "object": "y", "predicate": "z"} tuple."""
+
+    # TODO: Probably should handle all subject, object, and predicate more gracefully
+    type_map = {
+        EntityType.STRAT_NAME: Stratigraphy,
+        EntityType.MINERAL: Mineral,
+    }
+
+    s = triplet[prompt_handler.subject_key]
+    o = triplet[prompt_handler.object_key]
+    p = triplet[prompt_handler.predicate_key]
+
     return RelationshipTriplet(
-        subject=triplet[subject_key],
-        object=triplet[object_key],
-        predicate=triplet[predicate_key],
+        subject=Location(name=s),
+        object=type_map[prompt_handler.object_entity_type](name=o),
+        predicate=p,
         provenance=llm_provenance,
     )
 
@@ -197,9 +214,7 @@ async def post_process(
 
     triplet_format_func = partial(
         to_triplet,
-        subject_key=prompt_handler.subject_key,
-        object_key=prompt_handler.object_key,
-        predicate_key=prompt_handler.predicate_key,
+        prompt_handler=prompt_handler,
         llm_provenance=provenance,
     )
 
@@ -219,7 +234,7 @@ async def post_process(
     if alignment_handler:
         for triplet in safe_triplets:
             # Only apply to strat_name because location is not in Macrostrat
-            name = triplet.object.strat_name
+            name = triplet.object.name
             closest = alignment_handler.get_closest_known_entity(
                 name, threshold=threshold
             )
@@ -227,7 +242,7 @@ async def post_process(
             # Update triplet object if closest known entity is different from original
             if closest != name:
                 logging.info("Swapping", name, "with", closest)
-                triplet.object = Stratigraphy(strat_name=closest)
+                triplet.object = Stratigraphy(name=closest)
 
     output = GraphOutput(triplets=safe_triplets)
     if hydrate:
@@ -243,7 +258,7 @@ async def ask_llm(
     alignment_handler: AlignmentHandler | None = None,
     model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
     temperature: float = 0.0,
-    to_triplets: bool = True,
+    to_triplets: bool = True,  # For debugging intermediate steps
     doc_ids: list[str] | None = None,
     hydrate: bool = True,
     provenance: Provenance | None = None,
@@ -363,6 +378,8 @@ def get_graph_from_cache(
             f"SELECT id, paper_id, hashed_text, triplets FROM triplets WHERE id IN ({formatted_ids});"
         )
         rows = cursor.fetchall()
+
+    print(rows)
 
     # Validate to GraphOutput
     graphs = []

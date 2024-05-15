@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 from text2graph.macrostrat import (
+    EntityType,
     find_all_occurrences,
     get_all_mineral_names,
     get_all_strat_names,
@@ -30,6 +31,9 @@ class PromptHandler(ABC):
 
     @property
     def object_key(self) -> str: ...
+
+    @property
+    def object_entity_type(self) -> EntityType: ...
 
     @property
     def predicate_key(self) -> str: ...
@@ -81,6 +85,10 @@ class StratPromptHandlerV3(PromptHandler):
         return "stratigraphic_name"
 
     @property
+    def object_entity_type(self) -> EntityType:
+        return EntityType.STRAT_NAME
+
+    @property
     def predicate_key(self) -> str:
         return "relationship"
 
@@ -120,6 +128,10 @@ class MineralPromptHandlerV0(PromptHandler):
     @property
     def object_key(self) -> str:
         return "mineral_name"
+
+    @property
+    def object_entity_type(self) -> EntityType:
+        return EntityType.MINERAL
 
     @property
     def predicate_key(self) -> str:

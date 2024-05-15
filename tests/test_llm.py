@@ -57,7 +57,7 @@ def test_post_processor(raw_llm_output, stratname_prompt_handler_v3):
     # Check `Smithville` is hydrated
     for triplet in graph.triplets:
         assert isinstance(triplet.object, Stratigraphy)
-        if triplet.object.strat_name == "Smithville":
+        if triplet.object.name == "Smithville":
             for k, v in SMITHVILLE.items():
                 assert getattr(triplet.object, k) == v
 
