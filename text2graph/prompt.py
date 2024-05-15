@@ -97,7 +97,9 @@ class MineralPromptHandlerV0(PromptHandler):
         )
 
     def get_known_entities(self, text: str) -> str:
-        known_minerals = find_all_occurrences(text, self.mineral_names)
+        known_minerals = find_all_occurrences(
+            text, self.mineral_names, ignore_case=True
+        )
         known_mineral_names = set([entity["word"] for entity in known_minerals])
         return ", ".join(known_mineral_names)
 

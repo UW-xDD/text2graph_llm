@@ -131,16 +131,10 @@ async def get_lith_records(lith_name: str, exact: bool = False) -> list[dict]:
     return matches
 
 
-def _find_word_occurrences(
-    text: str, search_word: str, ignore_case: bool = False
-) -> list[dict]:
+def _find_word_occurrences(text: str, word: str) -> list[dict]:
     """Find all occurrences of a word in a given text and get its position of occurrence."""
 
-    if ignore_case:
-        search_word = search_word.lower()
-        text = text.lower()
-
-    matches = [match for match in re.finditer(rf"\b{re.escape(search_word)}\b", text)]
+    matches = [match for match in re.finditer(rf"\b{re.escape(word)}\b", text)]
     results = [
         {
             "word": match.group(),
@@ -161,13 +155,15 @@ def find_all_occurrences(
 ) -> list[dict[str, str | int]]:
     """Find all occurrences of a list of terms in a given text and get its position of occurrence."""
 
+    if ignore_case:
+        words = [word.lower() for word in words]
+        text = text.lower()
+
     occurrences = []
     for word in words:
         if word not in text:
             continue
-        this_occ = _find_word_occurrences(
-            text=text, search_word=word, ignore_case=ignore_case
-        )
+        this_occ = _find_word_occurrences(text=text, word=word)
         if this_occ:
             occurrences.extend(this_occ)
 
