@@ -1,3 +1,4 @@
+from enum import Enum
 from functools import cache
 from importlib.resources import files
 from pathlib import Path
@@ -6,20 +7,29 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import pairwise_cos_sim
 
-from text2graph.macrostrat import get_all_strat_names
+from text2graph.macrostrat import get_all_mineral_names, get_all_strat_names
+from text2graph.usgs import CRITICAL_MINERALS
+
+
+class EntityType(Enum):
+    STRAT_NAME = "strat_name"
+    MINERAL_NAME = "mineral_name"
 
 
 class AlignmentHandler:
     def __init__(
         self,
+        entity_type: EntityType,
         known_entity_names: list[str],
         known_entity_embeddings: np.ndarray | None = None,
         model_name: str = "all-MiniLM-L6-v2",
         device: str = "cpu",
     ) -> None:
-        self.model_name = model_name
+        self.entity_type = entity_type
         self.known_entity_names = known_entity_names
         self.known_entity_embeddings = known_entity_embeddings
+        self.model_name = model_name
+
         self.model = SentenceTransformer(model_name, device=device)
 
         # Instantiate from scratch
@@ -29,27 +39,16 @@ class AlignmentHandler:
         assert len(self.known_entity_names) == len(self.known_entity_embeddings)
 
     @property
-    def version(self) -> str:
-        return "v1"
-
-    def get_closest_known_entity(self, name: str, threshold: float = 0.95) -> str:
-        """Get the closest known entity to a given name or return itself if not found."""
-
-        x = self.model.encode([name])
-        similarity = pairwise_cos_sim(x, self.known_entity_embeddings)
-        idx_closest = np.argmax(similarity)
-
-        if similarity[idx_closest] < threshold:
-            return name
-        return self.known_entity_names[idx_closest]
+    def default_save_path(self) -> Path:
+        return Path(
+            f"text2graph/binaries/known_entity_embeddings/{self.entity_type.value}/{self.model_name}"
+        )
 
     def save(self, path: str | Path | None = None) -> None:
         """Save handler to disk."""
 
         if path is None:
-            path = Path(
-                f"text2graph/binaries/known_entity_embeddings/{self.model_name}"
-            )
+            path = self.default_save_path
 
         if isinstance(path, str):
             path = Path(path)
@@ -78,13 +77,19 @@ class AlignmentHandler:
         )
 
     @classmethod
-    def load(cls, name: str | None = None, device: str = "cpu") -> "AlignmentHandler":
+    def load(
+        cls,
+        entity_type: EntityType,
+        model_name: str = "all-MiniLM-L6-V2",
+        device: str = "cpu",
+    ) -> "AlignmentHandler":
         """Load handler from disk."""
 
-        if name is None:
-            name = "all-MiniLM-L6-v2"
-
-        path = files("text2graph.binaries.known_entity_embeddings") / name
+        path = (
+            files("text2graph.binaries.known_entity_embeddings")
+            / entity_type.value
+            / model_name
+        )
         model_name_file = path / "model.txt"
         known_entity_names_file = path / "known_entity_names.txt"
         known_entity_embeddings_file = str(path / "known_entity_embeddings.npz")
@@ -101,21 +106,47 @@ class AlignmentHandler:
         known_entity_embeddings = np.load(known_entity_embeddings_file)["embeddings"]
 
         return cls(
-            model_name=model_name,
+            entity_type=entity_type,
             known_entity_names=known_entity_names,
             known_entity_embeddings=known_entity_embeddings,
+            model_name=model_name,
             device=device,
         )
 
+    def get_closest_known_entity(self, name: str, threshold: float = 0.95) -> str:
+        """Get the closest known entity to a given name or return itself if not found."""
 
-def generate_known_entity_embeddings() -> None:
+        x = self.model.encode([name])
+        similarity = pairwise_cos_sim(x, self.known_entity_embeddings)  # type: ignore
+        idx_closest = np.argmax(similarity)
+
+        if similarity[idx_closest] < threshold:
+            return name
+        return self.known_entity_names[idx_closest]
+
+    @property
+    def version(self) -> str:
+        return "v1"
+
+
+def _generate_known_entity_embeddings() -> None:
     """Generate all known entity embeddings for alignment."""
 
-    handler = AlignmentHandler(known_entity_names=get_all_strat_names())
-    handler.save()
+    # Stratigraphic names
+    AlignmentHandler(
+        entity_type=EntityType.STRAT_NAME, known_entity_names=get_all_strat_names()
+    ).save()
+
+    # Minerals
+    macrostrat_minerals = get_all_mineral_names()
+    usgs_minerals = CRITICAL_MINERALS
+    all_minerals = list(set(macrostrat_minerals + usgs_minerals))
+    AlignmentHandler(
+        entity_type=EntityType.MINERAL_NAME, known_entity_names=all_minerals
+    ).save()
 
 
 @cache
-def get_cached_default_alignment_handler() -> AlignmentHandler:
-    """Get a cached instance of the default alignment handler."""
-    return AlignmentHandler.load()
+def get_alignment_handler(entity_type: EntityType) -> AlignmentHandler:
+    """Get alignment handler for a given entity type."""
+    return AlignmentHandler.load(entity_type=entity_type)
