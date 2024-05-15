@@ -4,7 +4,7 @@ import pytest
 from dotenv import load_dotenv
 
 from text2graph.alignment import AlignmentHandler
-from text2graph.prompt import PromptHandlerV3
+from text2graph.prompt import StratPromptHandlerV3
 
 load_dotenv()
 
@@ -26,7 +26,7 @@ def raw_llm_output() -> str:
 
 @pytest.fixture
 def prompt_handler_v3():
-    return PromptHandlerV3()
+    return StratPromptHandlerV3()
 
 
 @pytest.fixture

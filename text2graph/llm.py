@@ -10,12 +10,15 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
+from requests.auth import HTTPBasicAuth
 
-from text2graph.alignment import AlignmentHandler, get_cached_default_alignment_handler
+from text2graph.alignment import (
+    AlignmentHandler,
+)
 from text2graph.askxdd import Retriever
 from text2graph.geolocation.geocode import RateLimitedClient
 from text2graph.gkm.gkm import to_ttl
-from text2graph.prompt import PromptHandler, PromptHandlerV3, to_handler
+from text2graph.prompt import PromptHandler, StratPromptHandlerV3, get_prompt_handler
 from text2graph.schema import GraphOutput, Provenance, RelationshipTriplet, Stratigraphy
 
 load_dotenv()
@@ -32,6 +35,7 @@ class OpenAIModel(Enum):
     GPT3T = "gpt-3.5-turbo"
     GPT4 = "gpt-4"
     GPT4T = "gpt-4-turbo-preview"
+    GPTO = "gpt-4o"
 
 
 class AnthropicModel(Enum):
@@ -53,17 +57,17 @@ def to_model(model: str) -> OpenSourceModel | OpenAIModel | AnthropicModel:
 
 
 def query_openai(
-    model: OpenAIModel, messages: list[dict], temperature: float = 0.0
+    model: OpenAIModel, messages: list[dict[str, str]], temperature: float = 0.0
 ) -> str:
     """Query OpenAI API for language model completion."""
     client = OpenAI()
     completion = client.chat.completions.create(
         model=model.value,
         response_format={"type": "json_object"},
-        messages=messages,
+        messages=messages,  # type: ignore
         temperature=temperature,
         stream=False,
-    )
+    )  # type: ignore
     return completion.choices[0].message.content
 
 
@@ -74,8 +78,8 @@ def query_local_ollama(
     url = os.getenv("OLLAMA_URL")
     if not url:
         raise ValueError("OLLAMA_URL is not set.")
-    user = os.getenv("OLLAMA_USER")
-    password = os.getenv("OLLAMA_PASSWORD")
+    user = os.getenv("OLLAMA_USER", "")
+    password = os.getenv("OLLAMA_PASSWORD", "")
     data = {
         "model": model.value,
         "messages": messages,
@@ -84,9 +88,7 @@ def query_local_ollama(
         "format": "json",
     }
     # Non-streaming mode
-    response = requests.post(
-        url, auth=requests.auth.HTTPBasicAuth(user, password), json=data
-    )
+    response = requests.post(url, auth=HTTPBasicAuth(user, password), json=data)
     response.raise_for_status()
     return response.json()["message"]["content"]
 
@@ -166,7 +168,7 @@ def to_triplet(
     subject_key: str,
     object_key: str,
     predicate_key: str,
-    llm_provenance: Provenance,
+    llm_provenance: Provenance | None,
 ) -> RelationshipTriplet:
     """Inject attributes into RelationshipTriples model. Must be {"subject": "x", "object": "y", "predicate": "z"} tuple."""
     return RelationshipTriplet(
@@ -237,11 +239,11 @@ async def post_process(
 
 async def ask_llm(
     text: str,
-    prompt_handler: PromptHandler | str = "v3",
+    prompt_handler: PromptHandler | str = "stratname_v3",
+    alignment_handler: AlignmentHandler | None = None,
     model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
     temperature: float = 0.0,
     to_triplets: bool = True,
-    alignment_handler: AlignmentHandler | None = None,
     doc_ids: list[str] | None = None,
     hydrate: bool = True,
     provenance: Provenance | None = None,
@@ -253,16 +255,13 @@ async def ask_llm(
     if not doc_ids:
         doc_ids = []
 
-    if not alignment_handler:
-        alignment_handler = get_cached_default_alignment_handler()
-
     # Convert model string to enum
     if isinstance(model, str):
         model = to_model(model)
 
     # Convert prompt handler string to object
     if isinstance(prompt_handler, str):
-        prompt_handler = to_handler(prompt_handler)
+        prompt_handler = get_prompt_handler(prompt_handler)
 
     messages = prompt_handler.get_gpt_messages(text)
 
@@ -307,9 +306,17 @@ async def ask_llm(
 
 
 async def llm_graph_from_search(
-    query: str, top_k: int, model: str, ttl: bool = True, hydrate: bool = False
+    query: str,
+    top_k: int,
+    model: str,
+    prompt_handler: PromptHandler | None = None,
+    ttl: bool = True,
+    hydrate: bool = False,
 ) -> list[str] | list[GraphOutput]:
     """Business logic layer for llm graph extraction from search."""
+
+    if not prompt_handler:
+        prompt_handler = StratPromptHandlerV3()
 
     r = Retriever()
     paragraphs = r.query(query, top_k=top_k)
@@ -317,7 +324,7 @@ async def llm_graph_from_search(
     for paragraph in paragraphs:
         graph = await ask_llm(
             text=paragraph.text_content,
-            prompt_handler=PromptHandlerV3(),
+            prompt_handler=prompt_handler,
             model=model,
             temperature=0.0,
             to_triplets=True,

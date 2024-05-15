@@ -1,8 +1,8 @@
-from text2graph.prompt import PromptHandlerV3
+from text2graph.prompt import StratPromptHandlerV3
 
 
 def test_prompt_handler_v3(text):
-    handler = PromptHandlerV3()
+    handler = StratPromptHandlerV3()
 
     sys_prompt = handler.get_system_prompt(text)
     assert sys_prompt is not None
