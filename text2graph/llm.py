@@ -19,7 +19,7 @@ from text2graph.askxdd import Retriever
 from text2graph.geolocation.geocode import RateLimitedClient
 from text2graph.gkm.gkm import to_ttl
 from text2graph.macrostrat import EntityType
-from text2graph.prompt import PromptHandler, StratPromptHandlerV3, get_prompt_handler
+from text2graph.prompt import PromptHandler, get_prompt_handler
 from text2graph.schema import (
     GraphOutput,
     Location,
@@ -324,14 +324,12 @@ async def llm_graph_from_search(
     query: str,
     top_k: int,
     model: str,
-    prompt_handler: PromptHandler | None = None,
-    ttl: bool = True,
+    alignment_handler: AlignmentHandler,
+    prompt_handler: PromptHandler,
     hydrate: bool = False,
+    ttl: bool = True,
 ) -> list[str] | list[GraphOutput]:
     """Business logic layer for llm graph extraction from search."""
-
-    if not prompt_handler:
-        prompt_handler = StratPromptHandlerV3()
 
     r = Retriever()
     paragraphs = r.query(query, top_k=top_k)
@@ -340,6 +338,7 @@ async def llm_graph_from_search(
         graph = await ask_llm(
             text=paragraph.text_content,
             prompt_handler=prompt_handler,
+            alignment_handler=alignment_handler,
             model=model,
             temperature=0.0,
             to_triplets=True,
@@ -347,14 +346,11 @@ async def llm_graph_from_search(
                 paragraph.paper_id
             ],  # TODO: Confirm with Iain if this is the correct usage. It's unclear why a paragraph from one document requires a list.
             provenance=paragraph.provenance,
+            hydrate=hydrate,
         )
         graphs.append(graph)
 
     logging.info(paragraphs)
-
-    for graph in graphs:
-        if hydrate:
-            await graph.hydrate(client=RateLimitedClient(interval=1.2))
 
     if not ttl:
         return graphs
@@ -369,7 +365,6 @@ def get_graph_from_cache(
 
     GRAPH_CACHE = os.getenv("GRAPH_SQLITE")
     assert GRAPH_CACHE is not None, "GRAPH_SQLITE environment variable must be set."
-    print(GRAPH_CACHE)
 
     with sqlite3.connect(GRAPH_CACHE) as conn:
         cursor = conn.cursor()
@@ -378,8 +373,6 @@ def get_graph_from_cache(
             f"SELECT id, paper_id, hashed_text, triplets FROM triplets WHERE id IN ({formatted_ids});"
         )
         rows = cursor.fetchall()
-
-    print(rows)
 
     # Validate to GraphOutput
     graphs = []
