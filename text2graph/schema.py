@@ -252,11 +252,11 @@ class RelationshipTriplet(BaseModel):
 class GraphOutput(BaseModel):
     """LLM output should follow this format."""
 
-    triplets: list[RelationshipTriplet]
     id: str | None = None
     paper_id: str | None = None
     hashed_text: str | None = None
     text_content: str | None = None
+    triplets: list[RelationshipTriplet]
 
     async def hydrate(self, client: RateLimitedClient) -> None:
         """Hydrate all objects in the graph."""

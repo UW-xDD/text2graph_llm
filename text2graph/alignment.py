@@ -74,7 +74,7 @@ class AlignmentHandler:
     def load(
         cls,
         entity_type: EntityType,
-        model_name: str = "all-MiniLM-L6-V2",
+        model_name: str = "all-MiniLM-L6-v2",
         device: str = "cpu",
     ) -> "AlignmentHandler":
         """Load handler from disk."""

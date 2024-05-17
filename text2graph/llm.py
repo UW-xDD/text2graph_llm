@@ -207,7 +207,7 @@ async def post_process(
     """Post-process raw output to GraphOutput model."""
     triplets = json.loads(raw_llm_output)
 
-    # Handle different response formats form different llms
+    # Handle different response formats form different LLMs
     if "triplets" not in triplets:
         logging.info(f"unexpected triplet format: {triplets}, attempting to fix.")
         triplets = {"triplets": triplets}
@@ -348,6 +348,14 @@ async def llm_graph_from_search(
             provenance=paragraph.provenance,
             hydrate=hydrate,
         )
+
+        # Add paragraph level information
+        assert isinstance(graph, GraphOutput)
+        graph.id = paragraph.id
+        graph.paper_id = paragraph.paper_id
+        graph.hashed_text = paragraph.hashed_text
+        graph.text_content = paragraph.text_content
+
         graphs.append(graph)
 
     logging.info(paragraphs)
