@@ -1,6 +1,6 @@
 import asyncio
 
-from text2graph.llm import ask_llm, post_process
+from text2graph.llm import ask_llm, llm_graph_from_search, post_process
 from text2graph.schema import GraphOutput, Stratigraphy
 
 SMITHVILLE = {
@@ -115,3 +115,44 @@ def test_loc_to_mineral(mineral_alignment_handler, mineral_prompt_handler_v0):
     assert graph.triplets[0].subject.lat > 40
     assert graph.triplets[0].subject.lat < 50
     assert graph.triplets[0].object.name == "gold"
+
+
+def test_search_loc_to_stratname(
+    stratname_alignment_handler, stratname_prompt_handler_v3
+):
+    graphs = asyncio.run(
+        llm_graph_from_search(
+            query="Minnesota minings",
+            top_k=2,
+            model="gpt-4o",
+            prompt_handler=stratname_prompt_handler_v3,
+            alignment_handler=stratname_alignment_handler,
+            hydrate=False,
+            ttl=False,
+        )
+    )
+
+    assert graphs is not None
+    assert isinstance(graphs, list)
+    assert isinstance(graphs[0], GraphOutput)
+
+
+def test_search_loc_to_mineral(
+    mineral_alignment_handler,
+    mineral_prompt_handler_v0,
+):
+    graphs = asyncio.run(
+        llm_graph_from_search(
+            query="Minnesota minings",
+            top_k=2,
+            model="gpt-4o",
+            prompt_handler=mineral_prompt_handler_v0,
+            alignment_handler=mineral_alignment_handler,
+            hydrate=False,
+            ttl=False,
+        )
+    )
+
+    assert graphs is not None
+    assert isinstance(graphs, list)
+    assert isinstance(graphs[0], GraphOutput)
