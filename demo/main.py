@@ -4,13 +4,15 @@ import logging
 import streamlit as st
 from streamlit_extras.stylable_container import stylable_container
 
+from text2graph import __version__ as base_version
 from text2graph.gkm.gkm import to_ttl
 from text2graph.llm import fast_llm_graph_from_search
+from text2graph.schema import GraphOutput
 
 logging.basicConfig(level=logging.INFO)
 st.title("Ask-XDD: Location extraction demo")
 
-# CSS
+# CSS for text wrapping in code blocks
 custom_code_block_css = "code {white-space: pre-wrap !important;}"
 
 # Sidebar
@@ -39,6 +41,7 @@ with st.sidebar:
     st.markdown(
         "For more information, please refer to our [repo](https://github.com/UW-xDD/text2graph_llm#readme)."
     )
+    st.markdown(f"Version: {base_version}")
 
 # Main content
 query = st.text_input("Query", "Gold mines in Nevada")
@@ -58,6 +61,7 @@ if st.button("Run"):
         outputs = asyncio.run(outputs)
 
         for i, output in enumerate(outputs):
+            assert isinstance(output, GraphOutput)
             # Source Text
             st.text_area("Text", output.text_content, height=300, key=i)
 
