@@ -1,11 +1,12 @@
 import json
-from pathlib import Path
-
 import typer
 import sqlite3
 import asyncio
+import pandas as pd
+import aiofiles as aiof
+from pathlib import Path
 from dotenv import load_dotenv
-from typing import Any
+from typing import Any, Generator
 from tqdm.auto import tqdm
 from pydantic import ValidationError, BaseModel
 
@@ -24,8 +25,8 @@ COLUMN_LOOKUP = {
     "triplets": 5,
 }
 
-async def run_all_triplets(filtered_graphoutputs, client, output_path):
 
+async def run_all_triplets(filtered_graphoutputs, client, output_path):
     exceptions = await asyncio.gather(
         *[hydrate_and_split_one_graphoutput(
             go_idx=i,
@@ -43,12 +44,13 @@ def main(db_path: Path, output_path: Path, limit: int | None = None) -> None:
     if not db_path:
         db_path = Path("data/data_dump_240430.db")
     cur = get_db_cursor(db_path)
-    triplet_db_tuples = get_all_db_table_tuples(cur)
-    if limit:
-        triplet_db_tuples = triplet_db_tuples[:limit]
-    filtered_graphoutputs, _ = filter_triplet_db_tuples(triplet_db_tuples)
-    client=RateLimitedClient(interval=1.5)
-    asyncio.run(run_all_triplets(filtered_graphoutputs, client, output_path))
+    # triplet_db_tuples = get_all_db_table_tuples(cur)
+    # if limit:
+    #     triplet_db_tuples = triplet_db_tuples[:limit]
+    for triplets_chunk in get_all_db_table_tuples_chunks(cur=cur, chunksize=10000):
+        filtered_graphoutputs, _ = filter_triplet_db_tuples(triplets_chunk)
+        client=RateLimitedClient(interval=1.5)
+        _ = asyncio.run(run_all_triplets(filtered_graphoutputs, client, output_path))
     # keepers, notkeepers = asyncio.run(hydrate_and_split_triplets(
     # filtered_graphoutputs=filtered_graphoutputs,
     #client=RateLimitedClient(interval=1.5)
@@ -71,6 +73,28 @@ def get_all_db_table_tuples(
 ) -> list[tuple[Any, Any, Any, Any, Any]]:
     res = cur.execute("""SELECT * FROM triplets;""")
     return res.fetchall()
+
+
+def get_all_db_table_tuples_chunks(
+    cur: sqlite3.Cursor,
+    chunksize=None
+) -> Generator[list[tuple[Any, Any, Any, Any, Any]], None, None]:
+    """
+    Return generator for reading consecutive chunks of data from a table as
+    conn : DB connection object
+    chunksize : int
+        Number of rows to return in each call to the generator.
+    """
+
+    offset = 0
+    while True:
+        query = f"SELECT * FROM triplets LIMIT {chunksize} OFFSET {offset}" 
+        result = cur.execute(query).fetchall()
+        if len(result):
+    	    yield result
+        else:
+    	    raise StopIteration
+        offset += chunksize
 
 
 def filter_triplet_db_tuples(
@@ -125,9 +149,12 @@ async def hydrate_and_split_one_graphoutput(
             not_keeper_triplets.append(c)
 
     for name, data in zip(["keeper", "not_keeper"], [keeper_triplets, not_keeper_triplets]):
-        async with aiof.open(output_path / go_idx + "_" + name) as out:
-            await out.write(data)
-            await out.flush()
+        if data:
+            output_filename = output_path / name / (str(go_idx) + ".json")
+            async with aiof.open(output_filename, "w") as out:
+                print(f"writing to {output_filename}")
+                await out.write(json.dumps(data))
+                await out.flush()
 
 
 async def hydrate_and_split_triplets(
