@@ -1,7 +1,7 @@
 import asyncio
 
 from text2graph.llm import ask_llm, llm_graph_from_search, post_process
-from text2graph.schema import GraphOutput, Stratigraphy
+from text2graph.schema import GraphOutput, Mineral, Stratigraphy
 
 SMITHVILLE = {
     "strat_name": "Smithville",
@@ -135,6 +135,7 @@ def test_search_loc_to_stratname(
     assert graphs is not None
     assert isinstance(graphs, list)
     assert isinstance(graphs[0], GraphOutput)
+    assert isinstance(graphs[0].triplets[0].object, Stratigraphy)
 
 
 def test_search_loc_to_mineral(
@@ -156,3 +157,4 @@ def test_search_loc_to_mineral(
     assert graphs is not None
     assert isinstance(graphs, list)
     assert isinstance(graphs[0], GraphOutput)
+    assert isinstance(graphs[0].triplets[0].object, Mineral)
