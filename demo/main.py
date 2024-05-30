@@ -5,7 +5,7 @@ import streamlit as st
 from streamlit_extras.stylable_container import stylable_container
 
 from text2graph import __version__ as base_version
-from text2graph.gkm.gkm import to_ttl
+from text2graph.gkm.convert import to_ttl
 from text2graph.llm import fast_llm_graph_from_search
 from text2graph.schema import GraphOutput
 

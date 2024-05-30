@@ -1,0 +1,38 @@
+@prefix gsoc: <https://w3id.org/gso/1.0/common/> .
+@prefix gsog: <https://w3id.org/gso/geology/> .
+@prefix msl: <https://macrostrat.org/lexicon/> .
+@prefix pav: <http://purl.org/pav/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xdd: <https://xdd.wisc.edu/lexicon/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+xdd:Agrinierite a <https://w3id.org/gso/1.0/rockmaterial/Agrinierite>,
+        gsog:Rock_Material ;
+    rdfs:label "Agrinierite, None, K2(Ca,Sr)[(UO2)3O3(OH)2]2·5H2O"@en ;
+    prov:wasGeneratedBy msl:macrostratQuery ;
+    gsoc:hasQuality [ a gsoc:SpatialLocation ;
+            gsoc:hasValue [ a gsoc:WKT_Value ;
+                    prov:wasGeneratedBy xdd:geocodingAPIQuery ;
+                    gsoc:hasDataValue "( POINT 1.30833 45.98611 )" ;
+                    gsoc:hasReferenceSystem <https://epsg.io/4326> ],
+                [ a gsoc:SpatialValue ;
+                    gsoc:hasDataValue "Margnac Mine"@en ] ] .
+
+<https://epsg.io/4326> a gsoc:Geographic_Coordinate_System .
+
+msl:macrostrat a prov:entity ;
+    pav:version "v2"^^xsd:string .
+
+msl:macrostratQuery a prov:activity ;
+    prov:atLocation "https://macrostrat.org/api/defs/minerals?mineral_id=58"^^xsd:anyURI ;
+    prov:requestedAt "2024-05-29T20:01:46.967742+00:00"^^xsd:dateTime ;
+    prov:used msl:macrostrat .
+
+xdd:geocodingAPI a prov:entity ;
+    pav:version "v1.1"^^xsd:string .
+
+xdd:geocodingAPIQuery a prov:activity ;
+    prov:atLocation "https://geocoder.api/"^^xsd:anyURI ;
+    prov:requestedAt "2024-05-29T20:01:46.967742+00:00"^^xsd:dateTime ;
+    prov:used xdd:geocodingAPI .

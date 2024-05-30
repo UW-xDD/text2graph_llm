@@ -1,22 +1,24 @@
 import logging
 from pathlib import Path
 from typing import Protocol
-
 from pydantic import ValidationError
 from rdflib import Graph, URIRef
 
-from text2graph.gkm.features import (
-    default_rdf_graph,
-    define_object_node,
+from text2graph.schema import GraphOutput, RelationshipTriplet, Stratigraphy, Mineral
+from text2graph.gkm.namespace import default_rdf_graph
+from text2graph.gkm.features.general import triplet_provenance, spatial_location
+from text2graph.gkm.features.stratigraphy import (
+    object_node_stratigraphy,
     deposition_age,
-    spatial_location,
     stratigraphic_label,
     stratigraphic_rank_relations,
     stratigraphic_type,
     time_span,
-    triplet_provenance,
 )
-from text2graph.schema import GraphOutput, RelationshipTriplet
+from text2graph.gkm.features.mineral import (
+    object_node_mineral,
+    mineral_type,
+)
 
 
 class GraphFeatureGenerator(Protocol):
@@ -39,23 +41,40 @@ def triplet_to_rdf(triplet: dict | RelationshipTriplet) -> Graph | None:
             return
 
     g = default_rdf_graph()
-    object_node = define_object_node(triplet_object=triplet.object)
-    graph_features: list[GraphFeatureGenerator] = [
-        stratigraphic_type,
-        stratigraphic_label,
-        triplet_provenance,
-        spatial_location,
-        stratigraphic_rank_relations,
-        deposition_age,
-        time_span,
-    ]
+
+    match triplet.object:
+        case Stratigraphy():
+            object_node = object_node_stratigraphy(triplet_object=triplet.object)
+            graph_features: list[GraphFeatureGenerator] = [
+                stratigraphic_type,
+                stratigraphic_label,
+                triplet_provenance,
+                spatial_location,
+                stratigraphic_rank_relations,
+                deposition_age,
+                time_span,
+            ]
+
+        case Mineral():
+            object_node = object_node_mineral(triplet_object=triplet.object)
+            graph_features: list[GraphFeatureGenerator] = [
+                mineral_type,
+                triplet_provenance,
+                spatial_location,
+            ]
+
+        case _:
+            raise TypeError(f"unsupported triplet.object: {triplet.object}")
+
     for feat in graph_features:
         try:
             g = feat(g=g, triplet=triplet, object_node=object_node)
+
         except Exception as e:
             logging.info(
                 f"failed to add {feat.__name__} to graph with error:{e} for {triplet=}"
             )
+
     return g
 
 

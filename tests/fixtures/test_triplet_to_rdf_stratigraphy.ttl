@@ -1,0 +1,55 @@
+@prefix gsgu: <https://w3id.org/gso/geologicunit/> .
+@prefix gsoc: <https://w3id.org/gso/1.0/common/> .
+@prefix gsog: <https://w3id.org/gso/geology/> .
+@prefix gspr: <https://w3id.org/gso/geologicprocess/> .
+@prefix gst: <https://w3id.org/gso/geologictime/> .
+@prefix msl: <https://macrostrat.org/lexicon/> .
+@prefix pav: <http://purl.org/pav/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xdd: <https://xdd.wisc.edu/lexicon/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+msl:WaldronShale a gsgu:Formation ;
+    rdfs:label "Waldron Shale"@en ;
+    gsoc:hasQuality [ a gsoc:SpatialLocation ;
+            gsoc:hasValue [ a gsoc:SpatialValue ;
+                    gsoc:hasDataValue "Arkabulta and Franks Rd, MI"@en ],
+                [ a gsoc:WKT_Value ;
+                    prov:wasGeneratedBy xdd:geocodingAPIQuery ;
+                    gsoc:hasDataValue "( POINT -90.146 34.685 )" ;
+                    gsoc:hasReferenceSystem <https://epsg.io/4326> ] ] ;
+    gsoc:isPartOf msl:WayneGroup ;
+    gsoc:isParticipantIn [ a gspr:Deposition ;
+            rdfs:label "Deposition during Silurian"@en ;
+            prov:wasGeneratedBy msl:macrostratQuery ;
+            gsoc:occupiesTimeDirectly gst:SilurianPeriod ] ;
+    gsoc:occupiesTimeDirectly [ a gsog:Geologic_Time_Interval ;
+            prov:wasGeneratedBy msl:macrostratQuery ;
+            gsoc:hasQuality [ a gsoc:Time_Interval_Location ;
+                    gsoc:hasValue [ a gsoc:Temporal_Range ;
+                            gsoc:hasEndValue [ a gsoc:Time_Numeric_Value ;
+                                    gsoc:hasDataValue 4.274e+02 ] ;
+                            gsoc:hasStartValue [ a gsoc:Time_Numeric_Value ;
+                                    gsoc:hasDataValue 4.2965e+02 ] ] ] ] .
+
+<https://epsg.io/4326> a gsoc:Geographic_Coordinate_System .
+
+msl:WayneGroup a gsgu:Group ;
+    prov:wasGeneratedBy msl:macrostratQuery .
+
+msl:macrostrat a prov:entity ;
+    pav:version "v2"^^xsd:string .
+
+xdd:geocodingAPI a prov:entity ;
+    pav:version "v1.1"^^xsd:string .
+
+xdd:geocodingAPIQuery a prov:activity ;
+    prov:atLocation "https://geocoder.api/"^^xsd:anyURI ;
+    prov:requestedAt "2024-05-20T10:00:00"^^xsd:dateTime ;
+    prov:used xdd:geocodingAPI .
+
+msl:macrostratQuery a prov:activity ;
+    prov:atLocation "https://macrostrat.org/api/defs/strat_names?strat_name_id=4260"^^xsd:anyURI ;
+    prov:requestedAt "2024-05-20T10:00:00"^^xsd:dateTime ;
+    prov:used msl:macrostrat .

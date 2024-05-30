@@ -17,7 +17,7 @@ from text2graph.alignment import (
 )
 from text2graph.askxdd import Retriever
 from text2graph.geolocation.geocode import RateLimitedClient
-from text2graph.gkm.gkm import to_ttl
+from text2graph.gkm.convert import to_ttl
 from text2graph.macrostrat import EntityType
 from text2graph.prompt import PromptHandler, get_prompt_handler
 from text2graph.schema import (
