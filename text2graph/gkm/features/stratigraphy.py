@@ -6,6 +6,7 @@ from text2graph.macrostrat import get_all_intervals
 from text2graph.schema import Stratigraphy, RelationshipTriplet
 from text2graph.gkm.namespace import GSOC, GSOG, GSGU, GSPR, GST, MSL
 from text2graph.gkm.features.general import (
+    entity_name,
     add_macrostrat_query_and_entity,
 )
 
@@ -17,11 +18,11 @@ def object_node_stratigraphy(triplet_object: Stratigraphy) -> URIRef:
     :return: URIRef
     """
     try:
-        object_name = triplet_object.strat_name_long.replace(" ", "")
+        object_name = triplet_object.strat_name_long
     except (KeyError, AttributeError):
-        object_name = triplet_object.strat_name.replace(" ", "")
-    object_node = URIRef(object_name, MSL)
-    return object_node
+        object_name = triplet_object.strat_name
+    object_name = entity_name(object_name)
+    return URIRef(object_name, MSL)
 
 
 class Rank(IntEnum):

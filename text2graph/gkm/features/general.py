@@ -1,7 +1,19 @@
+import re
 from rdflib import URIRef, BNode, Graph, Literal, RDF, RDFS, XSD
 
 from text2graph.schema import RelationshipTriplet
 from text2graph.gkm.namespace import GSOC, PROV, PAV, MSL, XDD
+
+
+def entity_name(s) -> str:
+    """
+    create appropriate formatted entity name
+    :param: s: raw object name string
+    :return: formatted entity name string
+    """
+    initial_formatted_name = s.strip().title().replace(" ", "")
+    all_non_alpha_numeric_chars = r"[^A-Za-z0-9]"
+    return re.sub(all_non_alpha_numeric_chars, "-", initial_formatted_name)
 
 
 def add_macrostrat_query_and_entity(
