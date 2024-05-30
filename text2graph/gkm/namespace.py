@@ -25,6 +25,7 @@ def default_rdf_graph() -> Graph:
     g.bind("gsoc", GSOC)
     g.bind("gsog", GSOG)
     g.bind("gsgu", GSGU)
+    g.bind("gsrm", GSRM)
     g.bind("gst", GST)
     g.bind("gspr", GSPR)
 
