@@ -13,6 +13,7 @@ from typing_extensions import Annotated
 
 from text2graph import macrostrat
 from text2graph.geolocation.geocode import RateLimitedClient, get_gps
+from text2graph.usgs import USGS_FORMULAS
 
 
 class Provenance(BaseModel):
@@ -169,31 +170,66 @@ class Mineral(BaseModel):
     mineral_color: str | None = None
     lustre: str | None = None
     provenance: Provenance | None = None
+    elements: list[str] | None = None
 
     @property
     def name(self) -> str:
         return self.mineral
 
+    @staticmethod
+    def to_elements(formula: str) -> list[str]:
+        """Convert a chemical formula to a list of elements."""
+        elements = []
+
+        for char in formula:
+            if char.isnumeric() or char in "()-":
+                continue
+            if char.isupper():
+                elements.append(char)
+            else:
+                elements[-1] += char
+
+        return sorted(set(elements))
+
     async def hydrate(self) -> None:
         """Hydrate Mineral from macrostrat."""
-        try:
-            hit = await macrostrat.get_records(
-                entity_type=macrostrat.EntityType.MINERAL, name=self.name, exact=True
-            )
-            hit = hit[0]
-        except (ValueError, IndexError):
-            logging.warning(f"No records found for mineral '{self.name}'")
-            return
-
-        # Load data into model
-        for k, v in hit.items():
-            setattr(self, k, v)
-
-        self.provenance = Provenance(
-            source_name="Macrostrat",
-            source_url=f"{macrostrat.BASE_URL}/defs/minerals?mineral_id={hit['mineral_id']}",
-            previous=self.provenance,
+        hit = await macrostrat.get_records(
+            entity_type=macrostrat.EntityType.MINERAL, name=self.name, exact=True
         )
+
+        if hit:
+            # Process Macrostrat Mineral
+            hit = hit[0]
+            macrostrat_version = hit.pop("macrostrat_version")
+
+            # Load data into model
+            for k, v in hit.items():
+                setattr(self, k, v)
+
+            self.provenance = Provenance(
+                source_name="Macrostrat",
+                source_version=macrostrat_version,
+                source_url=f"{macrostrat.BASE_URL}/defs/minerals?mineral_id={hit['mineral_id']}",
+                previous=self.provenance,
+            )
+
+        else:
+            # Process USGS Exclusive Minerals
+            self.formula = USGS_FORMULAS.get(self.name.lower())
+            if not self.formula:
+                logging.warning(f"No records found for mineral '{self.name}'")
+                return
+
+            self.provenance = Provenance(
+                source_name="Mindat",
+                source_version=1.0,
+                source_url="https://api.mindat.org/",
+                previous=self.provenance,
+            )
+
+        # Convert formula to elements
+        if self.formula:
+            self.elements = self.to_elements(self.formula)
 
 
 def validate_longitude(v: float) -> float:

@@ -50,3 +50,31 @@ CRITICAL_MINERALS = [
     "zinc",
     "zirconium",
 ]
+
+# These are the mineral names that not within Macrostrat's mineral database
+USGS_FORMULAS = {
+    "barite": "BaSO4",  # https://www.mindat.org/min-549.html
+    "fluorspar": "CaF2",  # https://www.mindat.org/min-1576.html
+    "beryllium": "Be",
+    "cesium": "Cs",
+    "dysprosium": "Dy",
+    "erbium": "Er",
+    "europium": "Eu",
+    "gadolinium": "Gd",
+    "gallium": "Ga",
+    "germanium": "Ge",
+    "hafnium": "Hf",
+    "holmium": "Ho",
+    "lanthanum": "La",
+    "lithium": "Li",
+    "lutetium": "Lu",
+    "neodymium": "Nd",
+    "praseodymium": "Pr",
+    "rubidium": "Rb",
+    "samarium": "Sm",
+    "scandium": "Sc",
+    "terbium": "Tb",
+    "thulium": "Tm",
+    "yttrium": "Y",
+    "zirconium": "Zr",
+}

@@ -87,7 +87,7 @@ def get_all_intervals() -> list[dict]:
 async def get_records(
     entity_type: EntityType, name: str, exact: bool = False
 ) -> list[dict]:
-    """Get the records for a given stratigraphic name."""
+    """Get the records for a given record."""
 
     routes = {
         "strat_name": f"{BASE_URL}/defs/strat_names?strat_name={name}",
@@ -111,7 +111,7 @@ async def get_records(
                 if match[match_keys[entity_type.value]] == name
             ]
         if not matches:
-            logging.warning(f"No stratigraphic name found for '{name}'")
+            logging.warning(f"No record found for '{name}'")
     return matches
 
 
