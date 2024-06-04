@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
+from enum import Enum
 from uuid import UUID, uuid4
 
 import httpx
@@ -155,6 +156,127 @@ class Stratigraphy(BaseModel):
         )
 
 
+class Element(Enum):
+    Hydrogen = "H"
+    Helium = "He"
+    Lithium = "Li"
+    Beryllium = "Be"
+    Boron = "B"
+    Carbon = "C"
+    Nitrogen = "N"
+    Oxygen = "O"
+    Fluorine = "F"
+    Neon = "Ne"
+    Sodium = "Na"
+    Magnesium = "Mg"
+    Aluminium = "Al"
+    Silicon = "Si"
+    Phosphorus = "P"
+    Sulfur = "S"
+    Chlorine = "Cl"
+    Argon = "Ar"
+    Potassium = "K"
+    Calcium = "Ca"
+    Scandium = "Sc"
+    Titanium = "Ti"
+    Vanadium = "V"
+    Chromium = "Cr"
+    Manganese = "Mn"
+    Iron = "Fe"
+    Cobalt = "Co"
+    Nickel = "Ni"
+    Copper = "Cu"
+    Zinc = "Zn"
+    Gallium = "Ga"
+    Germanium = "Ge"
+    Arsenic = "As"
+    Selenium = "Se"
+    Bromine = "Br"
+    Krypton = "Kr"
+    Rubidium = "Rb"
+    Strontium = "Sr"
+    Yttrium = "Y"
+    Zirconium = "Zr"
+    Niobium = "Nb"
+    Molybdenum = "Mo"
+    Technetium = "Tc"
+    Ruthenium = "Ru"
+    Rhodium = "Rh"
+    Palladium = "Pd"
+    Silver = "Ag"
+    Cadmium = "Cd"
+    Indium = "In"
+    Tin = "Sn"
+    Antimony = "Sb"
+    Tellurium = "Te"
+    Iodine = "I"
+    Xenon = "Xe"
+    Caesium = "Cs"
+    Barium = "Ba"
+    Lanthanum = "La"
+    Cerium = "Ce"
+    Praseodymium = "Pr"
+    Neodymium = "Nd"
+    Promethium = "Pm"
+    Samarium = "Sm"
+    Europium = "Eu"
+    Gadolinium = "Gd"
+    Terbium = "Tb"
+    Dysprosium = "Dy"
+    Holmium = "Ho"
+    Erbium = "Er"
+    Thulium = "Tm"
+    Ytterbium = "Yb"
+    Lutetium = "Lu"
+    Hafnium = "Hf"
+    Tantalum = "Ta"
+    Tungsten = "W"
+    Rhenium = "Re"
+    Osmium = "Os"
+    Iridium = "Ir"
+    Platinum = "Pt"
+    Gold = "Au"
+    Mercury = "Hg"
+    Thallium = "Tl"
+    Lead = "Pb"
+    Bismuth = "Bi"
+    Polonium = "Po"
+    Astatine = "At"
+    Radon = "Rn"
+    Francium = "Fr"
+    Radium = "Ra"
+    Actinium = "Ac"
+    Thorium = "Th"
+    Protactinium = "Pa"
+    Uranium = "U"
+    Neptunium = "Np"
+    Plutonium = "Pu"
+    Americium = "Am"
+    Curium = "Cm"
+    Berkelium = "Bk"
+    Californium = "Cf"
+    Einsteinium = "Es"
+    Fermium = "Fm"
+    Mendelevium = "Md"
+    Nobelium = "No"
+    Lawrencium = "Lr"
+    Rutherfordium = "Rf"
+    Dubnium = "Db"
+    Seaborgium = "Sg"
+    Bohrium = "Bh"
+    Hassium = "Hs"
+    Meitnerium = "Mt"
+    Darmstadtium = "Ds"
+    Roentgenium = "Rg"
+    Copernicium = "Cn"
+    Nihonium = "Nh"
+    Flerovium = "Fl"
+    Moscovium = "Mc"
+    Livermorium = "Lv"
+    Tennessine = "Ts"
+    Oganesson = "Og"
+
+
 class Mineral(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -170,26 +292,49 @@ class Mineral(BaseModel):
     mineral_color: str | None = None
     lustre: str | None = None
     provenance: Provenance | None = None
-    elements: list[str] | None = None
+    elements: list[Element] | None = None
 
     @property
     def name(self) -> str:
         return self.mineral
 
     @staticmethod
-    def to_elements(formula: str) -> list[str]:
+    def to_elements(formula: str) -> list[Element]:
         """Convert a chemical formula to a list of elements."""
+
+        legal_element_suffix = "abcdefghiklmnoprstuvy"
+
         elements = []
-
-        for char in formula:
-            if char.isnumeric() or char in "()-":
-                continue
-            if char.isupper():
-                elements.append(char)
+        i = 0
+        while i < len(formula):
+            if formula[i].isupper():
+                # 2-letter element
+                if i + 1 < len(formula) and formula[i + 1] in legal_element_suffix:
+                    elements.append(formula[i : i + 2])
+                    i += 2
+                # 1-letter element
+                else:
+                    elements.append(formula[i])
+                    i += 1
             else:
-                elements[-1] += char
+                # Just skip the trash
+                i += 1
 
-        return sorted(set(elements))
+        # Deduplicate and sort elements
+        elements = sorted(set(elements))
+
+        # Validation against `Element` enum
+        valid_elements = []
+        for element in elements:
+            try:
+                valid_elements.append(Element(element))
+            except ValueError:
+                logging.warning(
+                    f"When processing formula: {formula}, element: '{element}' not recognized"
+                )
+                pass
+
+        return valid_elements
 
     async def hydrate(self) -> None:
         """Hydrate Mineral from macrostrat."""
@@ -217,7 +362,6 @@ class Mineral(BaseModel):
             # Process USGS Exclusive Minerals
             self.formula = USGS_FORMULAS.get(self.name.lower())
             if not self.formula:
-                logging.warning(f"No records found for mineral '{self.name}'")
                 return
 
             self.provenance = Provenance(

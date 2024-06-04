@@ -111,7 +111,7 @@ async def get_records(
                 if match[match_keys[entity_type.value]] == name
             ]
         if not matches:
-            logging.warning(f"No record found for '{name}'")
+            logging.warning(f"No record found for '{name}' in Macrostrat.")
     return matches
 
 
