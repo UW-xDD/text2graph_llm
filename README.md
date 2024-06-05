@@ -55,12 +55,12 @@ For convenient, you can use this [notebook](notebooks/users/quickstart_api.ipynb
 
 ## Instructions to developers
 
-Code formatting is per ruff and enforced with pre-commit, installed from the dependencies. Configure it in your own repo prior to committing any changes:
+Steps to setup environment:
 
-```bash
-pip install ."[dev]"
-pre-commit install
-pre-commit --version
-```
+1. Open the project in VSCode.
+2. Press `F1`, select `Reopen in Container` to set up the dev environment using the [dev-container](.devcontainer/devcontainer.json).
+3. Copy the `.env` file from the shared Google Drive to the project root.
+4. Copy the extracted graph cache data from Google Drive to `app_data/`.
+5. Run `docker-compose up` in bash to deploy locally.
 
 </details>
