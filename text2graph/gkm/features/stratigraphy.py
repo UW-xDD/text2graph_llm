@@ -17,10 +17,11 @@ def object_node_stratigraphy(triplet_object: Stratigraphy) -> URIRef:
     :param triplet_object: subject/strat_name dict
     :return: URIRef
     """
-    try:
+
+    object_name = triplet_object.strat_name
+    if triplet_object.strat_name_long and triplet_object.strat_name_long != "None":
         object_name = triplet_object.strat_name_long
-    except (KeyError, AttributeError):
-        object_name = triplet_object.strat_name
+
     object_name = entity_name(object_name)
     return URIRef(object_name, MSL)
 
@@ -60,6 +61,10 @@ RANK_LOOKUP = {
 }
 
 
+def interval_name(s: str) -> str:
+    return s.strip().title().replace(" ", "").replace('"', "")
+
+
 def create_interval_lookup(intervals: list[dict]) -> dict:
     """
     create a rdflib namespace GST class for every interval in macrostrat
@@ -68,13 +73,12 @@ def create_interval_lookup(intervals: list[dict]) -> dict:
     """
     lookup = {}
     for interval in intervals:
-        interval_name = (
-            interval["name"].strip().title().replace(" ", "").replace('"', "")
-        )
-        interval_type = interval["int_type"].title().replace(" ", "")
-        interval_class_name = interval_name + interval_type
-        gst_class = GST[interval_class_name]
-        lookup[interval_name] = gst_class
+        if interval:
+            intervalname = interval_name(interval["name"])
+            interval_type = interval["int_type"].title().replace(" ", "")
+            interval_class_name = intervalname + interval_type
+            gst_class = GST[interval_class_name]
+            lookup[intervalname] = gst_class
 
     return lookup
 
@@ -174,6 +178,7 @@ def stratigraphic_rank_relations(
                 # print(f"{relator_rank_relation.name} is part of {subject_rank_relation.name}")
                 rank_relation_node = URIRef(relator_rank_relation.entity_name, MSL)
                 g.add((rank_relation_node, RDF.type, relator_rank_relation.rdftype))
+                g.add((rank_relation_node, RDF.type, relator_rank_relation.rdftype))
                 g.add((rank_relation_node, GSOC.isPartOf, object_node))
                 g = add_macrostrat_query_and_entity(
                     g=g, triplet=triplet, attributed_node=rank_relation_node
@@ -197,9 +202,9 @@ def deposition_age(
     """
     Add subject deposition age to subject in graph
     """
-    subject_data = triplet.object.model_dump()
+    object_data = triplet.object.model_dump()
     period_keys = ["t_period", "b_period"]
-    unique_periods = set([subject_data[k] for k in period_keys])
+    unique_periods = set([object_data[k] for k in period_keys])
 
     for period in unique_periods:
         if period and period != "None":
