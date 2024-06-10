@@ -10,13 +10,24 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
+from requests.auth import HTTPBasicAuth
 
-from text2graph.alignment import AlignmentHandler, get_cached_default_alignment_handler
+from text2graph.alignment import (
+    AlignmentHandler,
+)
 from text2graph.askxdd import Retriever
 from text2graph.geolocation.geocode import RateLimitedClient
-from text2graph.gkm.gkm import to_ttl
-from text2graph.prompt import PromptHandler, PromptHandlerV3, to_handler
-from text2graph.schema import GraphOutput, Provenance, RelationshipTriplet, Stratigraphy
+from text2graph.gkm.convert import to_ttl
+from text2graph.macrostrat import EntityType
+from text2graph.prompt import PromptHandler, get_prompt_handler
+from text2graph.schema import (
+    GraphOutput,
+    Location,
+    Mineral,
+    Provenance,
+    RelationshipTriplet,
+    Stratigraphy,
+)
 
 load_dotenv()
 
@@ -32,6 +43,7 @@ class OpenAIModel(Enum):
     GPT3T = "gpt-3.5-turbo"
     GPT4 = "gpt-4"
     GPT4T = "gpt-4-turbo-preview"
+    GPTO = "gpt-4o"
 
 
 class AnthropicModel(Enum):
@@ -53,17 +65,17 @@ def to_model(model: str) -> OpenSourceModel | OpenAIModel | AnthropicModel:
 
 
 def query_openai(
-    model: OpenAIModel, messages: list[dict], temperature: float = 0.0
+    model: OpenAIModel, messages: list[dict[str, str]], temperature: float = 0.0
 ) -> str:
     """Query OpenAI API for language model completion."""
     client = OpenAI()
     completion = client.chat.completions.create(
         model=model.value,
         response_format={"type": "json_object"},
-        messages=messages,
+        messages=messages,  # type: ignore
         temperature=temperature,
         stream=False,
-    )
+    )  # type: ignore
     return completion.choices[0].message.content
 
 
@@ -74,8 +86,8 @@ def query_local_ollama(
     url = os.getenv("OLLAMA_URL")
     if not url:
         raise ValueError("OLLAMA_URL is not set.")
-    user = os.getenv("OLLAMA_USER")
-    password = os.getenv("OLLAMA_PASSWORD")
+    user = os.getenv("OLLAMA_USER", "")
+    password = os.getenv("OLLAMA_PASSWORD", "")
     data = {
         "model": model.value,
         "messages": messages,
@@ -84,9 +96,7 @@ def query_local_ollama(
         "format": "json",
     }
     # Non-streaming mode
-    response = requests.post(
-        url, auth=requests.auth.HTTPBasicAuth(user, password), json=data
-    )
+    response = requests.post(url, auth=HTTPBasicAuth(user, password), json=data)
     response.raise_for_status()
     return response.json()["message"]["content"]
 
@@ -163,16 +173,25 @@ def query_anthropic(
 
 def to_triplet(
     triplet: dict,
-    subject_key: str,
-    object_key: str,
-    predicate_key: str,
-    llm_provenance: Provenance,
+    prompt_handler: PromptHandler,
+    llm_provenance: Provenance | None = None,
 ) -> RelationshipTriplet:
     """Inject attributes into RelationshipTriples model. Must be {"subject": "x", "object": "y", "predicate": "z"} tuple."""
+
+    # TODO: Probably should handle all subject, object, and predicate more gracefully
+    type_map = {
+        EntityType.STRAT_NAME: Stratigraphy,
+        EntityType.MINERAL: Mineral,
+    }
+
+    s = triplet[prompt_handler.subject_key]
+    o = triplet[prompt_handler.object_key]
+    p = triplet[prompt_handler.predicate_key]
+
     return RelationshipTriplet(
-        subject=triplet[subject_key],
-        object=triplet[object_key],
-        predicate=triplet[predicate_key],
+        subject=Location(name=s),
+        object=type_map[prompt_handler.object_entity_type](name=o),
+        predicate=p,
         provenance=llm_provenance,
     )
 
@@ -188,16 +207,14 @@ async def post_process(
     """Post-process raw output to GraphOutput model."""
     triplets = json.loads(raw_llm_output)
 
-    # Handle different response formats form different llms
+    # Handle different response formats form different LLMs
     if "triplets" not in triplets:
         logging.info(f"unexpected triplet format: {triplets}, attempting to fix.")
         triplets = {"triplets": triplets}
 
     triplet_format_func = partial(
         to_triplet,
-        subject_key=prompt_handler.subject_key,
-        object_key=prompt_handler.object_key,
-        predicate_key=prompt_handler.predicate_key,
+        prompt_handler=prompt_handler,
         llm_provenance=provenance,
     )
 
@@ -217,7 +234,7 @@ async def post_process(
     if alignment_handler:
         for triplet in safe_triplets:
             # Only apply to strat_name because location is not in Macrostrat
-            name = triplet.object.strat_name
+            name = triplet.object.name
             closest = alignment_handler.get_closest_known_entity(
                 name, threshold=threshold
             )
@@ -225,7 +242,7 @@ async def post_process(
             # Update triplet object if closest known entity is different from original
             if closest != name:
                 logging.info("Swapping", name, "with", closest)
-                triplet.object = Stratigraphy(strat_name=closest)
+                triplet.object = Stratigraphy(name=closest)
 
     output = GraphOutput(triplets=safe_triplets)
     if hydrate:
@@ -237,11 +254,11 @@ async def post_process(
 
 async def ask_llm(
     text: str,
-    prompt_handler: PromptHandler | str = "v3",
+    prompt_handler: PromptHandler | str = "stratname_v3",
+    alignment_handler: AlignmentHandler | None = None,
     model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "gpt-3.5-turbo",
     temperature: float = 0.0,
-    to_triplets: bool = True,
-    alignment_handler: AlignmentHandler | None = None,
+    to_triplets: bool = True,  # For debugging intermediate steps
     doc_ids: list[str] | None = None,
     hydrate: bool = True,
     provenance: Provenance | None = None,
@@ -253,16 +270,13 @@ async def ask_llm(
     if not doc_ids:
         doc_ids = []
 
-    if not alignment_handler:
-        alignment_handler = get_cached_default_alignment_handler()
-
     # Convert model string to enum
     if isinstance(model, str):
         model = to_model(model)
 
     # Convert prompt handler string to object
     if isinstance(prompt_handler, str):
-        prompt_handler = to_handler(prompt_handler)
+        prompt_handler = get_prompt_handler(prompt_handler)
 
     messages = prompt_handler.get_gpt_messages(text)
 
@@ -307,7 +321,13 @@ async def ask_llm(
 
 
 async def llm_graph_from_search(
-    query: str, top_k: int, model: str, ttl: bool = True, hydrate: bool = False
+    query: str,
+    top_k: int,
+    model: str,
+    alignment_handler: AlignmentHandler,
+    prompt_handler: PromptHandler,
+    hydrate: bool = False,
+    ttl: bool = True,
 ) -> list[str] | list[GraphOutput]:
     """Business logic layer for llm graph extraction from search."""
 
@@ -317,7 +337,8 @@ async def llm_graph_from_search(
     for paragraph in paragraphs:
         graph = await ask_llm(
             text=paragraph.text_content,
-            prompt_handler=PromptHandlerV3(),
+            prompt_handler=prompt_handler,
+            alignment_handler=alignment_handler,
             model=model,
             temperature=0.0,
             to_triplets=True,
@@ -325,14 +346,19 @@ async def llm_graph_from_search(
                 paragraph.paper_id
             ],  # TODO: Confirm with Iain if this is the correct usage. It's unclear why a paragraph from one document requires a list.
             provenance=paragraph.provenance,
+            hydrate=hydrate,
         )
+
+        # Add paragraph level information
+        assert isinstance(graph, GraphOutput)
+        graph.id = paragraph.id
+        graph.paper_id = paragraph.paper_id
+        graph.hashed_text = paragraph.hashed_text
+        graph.text_content = paragraph.text_content
+
         graphs.append(graph)
 
     logging.info(paragraphs)
-
-    for graph in graphs:
-        if hydrate:
-            await graph.hydrate(client=RateLimitedClient(interval=1.2))
 
     if not ttl:
         return graphs
@@ -347,7 +373,6 @@ def get_graph_from_cache(
 
     GRAPH_CACHE = os.getenv("GRAPH_SQLITE")
     assert GRAPH_CACHE is not None, "GRAPH_SQLITE environment variable must be set."
-    print(GRAPH_CACHE)
 
     with sqlite3.connect(GRAPH_CACHE) as conn:
         cursor = conn.cursor()

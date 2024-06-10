@@ -1,7 +1,8 @@
+import pytest
 import asyncio
 
-from text2graph.llm import post_process
-from text2graph.schema import GraphOutput
+from text2graph.llm import ask_llm, llm_graph_from_search, post_process
+from text2graph.schema import GraphOutput, Mineral, Stratigraphy
 
 SMITHVILLE = {
     "strat_name": "Smithville",
@@ -31,9 +32,11 @@ SMITHVILLE = {
 }
 
 
-def test_post_processor(raw_llm_output, prompt_handler_v3):
+def test_post_processor(raw_llm_output, stratname_prompt_handler_v3):
     graph = asyncio.run(
-        post_process(raw_llm_output=raw_llm_output, prompt_handler=prompt_handler_v3)
+        post_process(
+            raw_llm_output=raw_llm_output, prompt_handler=stratname_prompt_handler_v3
+        )
     )
 
     assert graph is not None
@@ -54,21 +57,110 @@ def test_post_processor(raw_llm_output, prompt_handler_v3):
 
     # Check `Smithville` is hydrated
     for triplet in graph.triplets:
-        if triplet.object.strat_name == "Smithville":
+        assert isinstance(triplet.object, Stratigraphy)
+        if triplet.object.name == "Smithville":
             for k, v in SMITHVILLE.items():
                 assert getattr(triplet.object, k) == v
 
 
+@pytest.mark.slow()
 def test_post_processor_with_alignment(
-    raw_llm_output, prompt_handler_v3, alignment_handler
+    raw_llm_output, stratname_prompt_handler_v3, stratname_alignment_handler
 ):
     graph = asyncio.run(
         post_process(
             raw_llm_output=raw_llm_output,
-            prompt_handler=prompt_handler_v3,
-            alignment_handler=alignment_handler,
+            prompt_handler=stratname_prompt_handler_v3,
+            alignment_handler=stratname_alignment_handler,
         )
     )
 
     assert graph is not None
     assert isinstance(graph, GraphOutput)
+
+
+@pytest.mark.slow()
+def test_loc_to_stratname(stratname_alignment_handler, stratname_prompt_handler_v3):
+    graph = asyncio.run(
+        ask_llm(
+            text="Shakopee formation is in Minnesota.",
+            prompt_handler=stratname_prompt_handler_v3,
+            alignment_handler=stratname_alignment_handler,
+            model="gpt-4o",
+            hydrate=True,
+        )
+    )
+
+    assert graph is not None
+    assert isinstance(graph, GraphOutput)
+    assert graph.triplets[0].subject.name == "Minnesota"
+    assert graph.triplets[0].subject.lat is not None
+    assert graph.triplets[0].subject.lat > 40
+    assert graph.triplets[0].subject.lat < 50
+    assert graph.triplets[0].object.name == "Shakopee"
+
+
+@pytest.mark.slow()
+def test_loc_to_mineral(mineral_alignment_handler, mineral_prompt_handler_v0):
+    graph = asyncio.run(
+        ask_llm(
+            text="There are plenty of 24k gold is in Minnesota.",
+            prompt_handler=mineral_prompt_handler_v0,
+            alignment_handler=mineral_alignment_handler,
+            model="gpt-4o",
+            hydrate=True,
+        )
+    )
+
+    assert graph is not None
+    assert isinstance(graph, GraphOutput)
+    assert graph.triplets[0].subject.name == "Minnesota"
+    assert graph.triplets[0].subject.lat is not None
+    assert graph.triplets[0].subject.lat > 40
+    assert graph.triplets[0].subject.lat < 50
+    assert graph.triplets[0].object.name == "gold"
+
+
+@pytest.mark.slow()
+def test_search_loc_to_stratname(
+    stratname_alignment_handler, stratname_prompt_handler_v3
+):
+    graphs = asyncio.run(
+        llm_graph_from_search(
+            query="Minnesota minings",
+            top_k=2,
+            model="gpt-4o",
+            prompt_handler=stratname_prompt_handler_v3,
+            alignment_handler=stratname_alignment_handler,
+            hydrate=False,
+            ttl=False,
+        )
+    )
+
+    assert graphs is not None
+    assert isinstance(graphs, list)
+    assert isinstance(graphs[0], GraphOutput)
+    assert isinstance(graphs[0].triplets[0].object, Stratigraphy)
+
+
+@pytest.mark.slow()
+def test_search_loc_to_mineral(
+    mineral_alignment_handler,
+    mineral_prompt_handler_v0,
+):
+    graphs = asyncio.run(
+        llm_graph_from_search(
+            query="Minnesota minings",
+            top_k=2,
+            model="gpt-4o",
+            prompt_handler=mineral_prompt_handler_v0,
+            alignment_handler=mineral_alignment_handler,
+            hydrate=False,
+            ttl=False,
+        )
+    )
+
+    assert graphs is not None
+    assert isinstance(graphs, list)
+    assert isinstance(graphs[0], GraphOutput)
+    assert isinstance(graphs[0].triplets[0].object, Mineral)

@@ -12,7 +12,7 @@ from tqdm import tqdm
 from text2graph.alignment import AlignmentHandler
 from text2graph.askxdd import get_weaviate_client
 from text2graph.llm import post_process
-from text2graph.prompt import PromptHandlerV3
+from text2graph.prompt import StratPromptHandlerV3
 from text2graph.schema import Provenance
 
 
@@ -46,7 +46,7 @@ class BatchInferenceRunner:
 
         # Delay loading of the infrastructure to allow quick fail (e.g., batch already processed)
         self.weaviate_client = get_weaviate_client()
-        self.prompt_handler = PromptHandlerV3()
+        self.prompt_handler = StratPromptHandlerV3()
         self.alignment_handler = AlignmentHandler.load(
             name="all-MiniLM-L6-v2", device="cuda"
         )

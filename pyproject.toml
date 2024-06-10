@@ -53,3 +53,24 @@ chtc = [
   "libsql-experimental==0.0.34",
   "SQLAlchemy==2.0.29",
 ]
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+text2graph_llm = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+chtc = { features = ["chtc"], solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tool.pixi.tasks]
+
+[tool.pytest.ini_options]
+addopts = "-s --strict-markers"
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "serial"
+]

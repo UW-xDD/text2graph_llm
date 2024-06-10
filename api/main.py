@@ -4,12 +4,13 @@ import os
 import engine
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import APIKeyHeader
-from pydantic import BaseModel
+
+from text2graph import __version__ as base_version
 
 logging.basicConfig(level=logging.INFO)
 
 
-app = FastAPI(title="Text2Graph API", version="0.0.3")
+app = FastAPI(title="Text2Graph API", version=base_version)
 
 # Api-Key Authentication
 API_KEY = os.getenv("API_KEY")
@@ -24,19 +25,6 @@ async def has_valid_api_key(api_key_header: str = Depends(api_key_header)):
     return api_key_header
 
 
-# Data models
-class TextToGraphRequest(BaseModel):
-    text: str
-    model: str
-
-
-class GraphRequest(BaseModel):
-    query: str
-    top_k: int
-    ttl: bool
-    hydrate: bool
-
-
 @app.get("/", tags=["Documentation"])
 async def root():
     return {
@@ -49,10 +37,10 @@ async def root():
     dependencies=[Depends(has_valid_api_key)],
     tags=["debug"],
 )
-async def text_to_graph(request: TextToGraphRequest):
+async def text_to_graph(request: engine.TextToGraphRequest):
     logging.info(f"Received request: {request}")
     try:
-        return await engine.llm_graph(**request.model_dump())
+        return await engine.text_to_graph(**request.model_dump())
     except Exception as error:
         logging.error(f"Failed to process request: {error}")
         raise HTTPException(
@@ -61,15 +49,15 @@ async def text_to_graph(request: TextToGraphRequest):
 
 
 @app.post(
-    "/slow_llm_graph",
+    "/search_to_graph_slow",
     dependencies=[Depends(has_valid_api_key)],
     tags=["LLM"],
 )
-async def slow_llm_graph(request: GraphRequest):
+async def search_to_graph_slow(request: engine.SearchToGraphRequest):
     """Retrieve the LLM graph for the search query in real time."""
     logging.info(f"Received request: {request}")
     try:
-        return await engine.slow_llm_graph_from_search(**request.model_dump())
+        return await engine.search_to_graph_slow(**request.model_dump())
     except Exception as error:
         logging.error(f"Failed to process request: {error}")
         raise HTTPException(
@@ -78,15 +66,15 @@ async def slow_llm_graph(request: GraphRequest):
 
 
 @app.post(
-    "/llm_graph",
+    "/search_to_graph_fast",
     dependencies=[Depends(has_valid_api_key)],
     tags=["LLM"],
 )
-async def llm_graph(request: GraphRequest):
+async def search_to_graph_fast(request: engine.SearchToGraphRequest):
     """Retrieve the LLM graph for the search query from cached graph data."""
     logging.info(f"Received request: {request}")
     try:
-        return await engine.fast_llm_graph_from_search(**request.model_dump())
+        return await engine.search_to_graph_fast(**request.model_dump())
     except Exception as error:
         logging.error(f"Failed to process request: {error}")
         raise HTTPException(
