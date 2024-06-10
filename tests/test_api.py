@@ -5,13 +5,13 @@ import requests
 LOCAL_API_URL = "http://localhost:4510"
 
 
-def test_health():
+def test_api_health():
     response = requests.get(LOCAL_API_URL)
     assert response.status_code == 200
     assert "message" in response.json()
 
 
-def test_text_to_graph_strat(api_auth_header, pipeline="Location to Stratigraphy"):
+def test_api_text_to_graph_strat(api_auth_header, pipeline="Location to Stratigraphy"):
     response = requests.post(
         f"{LOCAL_API_URL}/text_to_graph",
         headers=api_auth_header,
@@ -25,7 +25,7 @@ def test_text_to_graph_strat(api_auth_header, pipeline="Location to Stratigraphy
     assert "triplets" in response.json()
 
 
-def test_text_to_graph_mineral(api_auth_header, pipeline="Location to Mineral"):
+def test_api_text_to_graph_mineral(api_auth_header, pipeline="Location to Mineral"):
     response = requests.post(
         f"{LOCAL_API_URL}/text_to_graph",
         headers=api_auth_header,
@@ -39,7 +39,7 @@ def test_text_to_graph_mineral(api_auth_header, pipeline="Location to Mineral"):
     assert "triplets" in response.json()
 
 
-def test_search_to_graph_slow_strat(
+def test_api_search_to_graph_slow_strat(
     api_auth_header, pipeline="Location to Stratigraphy"
 ):
     response = requests.post(
@@ -57,7 +57,9 @@ def test_search_to_graph_slow_strat(
     assert "@prefix" in response.json()[0]
 
 
-def test_search_to_graph_slow_mineral(api_auth_header, pipeline="Location to Mineral"):
+def test_api_search_to_graph_slow_mineral(
+    api_auth_header, pipeline="Location to Mineral"
+):
     response = requests.post(
         f"{LOCAL_API_URL}/search_to_graph_slow",
         headers=api_auth_header,
@@ -74,7 +76,7 @@ def test_search_to_graph_slow_mineral(api_auth_header, pipeline="Location to Min
     assert "@prefix" in response.json()[0]
 
 
-def test_search_to_graph_fast(api_auth_header, pipeline="Location to Stratigraphy"):
+def test_api_search_to_graph_fast(api_auth_header, pipeline="Location to Stratigraphy"):
     response = requests.post(
         f"{LOCAL_API_URL}/search_to_graph_fast",
         headers=api_auth_header,

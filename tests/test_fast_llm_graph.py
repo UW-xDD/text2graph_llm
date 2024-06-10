@@ -1,9 +1,11 @@
+import pytest
 import asyncio
 
 from text2graph.llm import fast_llm_graph_from_search
 from text2graph.schema import GraphOutput
 
 
+@pytest.mark.slow()
 def test_fast_llm_graph_from_search_default():
     ttls = asyncio.run(
         fast_llm_graph_from_search(query="gold mines", top_k=2, hydrate=False, ttl=True)
@@ -15,6 +17,7 @@ def test_fast_llm_graph_from_search_default():
     assert ttl.startswith("@prefix")
 
 
+@pytest.mark.slow()
 def test_fast_llm_graph_from_search_no_ttl():
     graphs = asyncio.run(
         fast_llm_graph_from_search(
@@ -31,6 +34,7 @@ def test_fast_llm_graph_from_search_no_ttl():
 
 # Test Hydration
 # Caution: Hydration is super slow for larger graph.
+@pytest.mark.slow()
 def test_fast_llm_graph_from_search_hydrate():
     ttls = asyncio.run(
         fast_llm_graph_from_search(query="gold mines", top_k=1, hydrate=True, ttl=True)
@@ -42,6 +46,7 @@ def test_fast_llm_graph_from_search_hydrate():
     assert "xdd:GeocodeAPIQuery" in ttl
 
 
+@pytest.mark.slow()
 def test_with_text():
     graphs = asyncio.run(
         fast_llm_graph_from_search(

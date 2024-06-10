@@ -1,3 +1,4 @@
+import pytest
 import asyncio
 
 from text2graph.llm import ask_llm, llm_graph_from_search, post_process
@@ -62,6 +63,7 @@ def test_post_processor(raw_llm_output, stratname_prompt_handler_v3):
                 assert getattr(triplet.object, k) == v
 
 
+@pytest.mark.slow()
 def test_post_processor_with_alignment(
     raw_llm_output, stratname_prompt_handler_v3, stratname_alignment_handler
 ):
@@ -77,6 +79,7 @@ def test_post_processor_with_alignment(
     assert isinstance(graph, GraphOutput)
 
 
+@pytest.mark.slow()
 def test_loc_to_stratname(stratname_alignment_handler, stratname_prompt_handler_v3):
     graph = asyncio.run(
         ask_llm(
@@ -97,6 +100,7 @@ def test_loc_to_stratname(stratname_alignment_handler, stratname_prompt_handler_
     assert graph.triplets[0].object.name == "Shakopee"
 
 
+@pytest.mark.slow()
 def test_loc_to_mineral(mineral_alignment_handler, mineral_prompt_handler_v0):
     graph = asyncio.run(
         ask_llm(
@@ -117,6 +121,7 @@ def test_loc_to_mineral(mineral_alignment_handler, mineral_prompt_handler_v0):
     assert graph.triplets[0].object.name == "gold"
 
 
+@pytest.mark.slow()
 def test_search_loc_to_stratname(
     stratname_alignment_handler, stratname_prompt_handler_v3
 ):
@@ -138,6 +143,7 @@ def test_search_loc_to_stratname(
     assert isinstance(graphs[0].triplets[0].object, Stratigraphy)
 
 
+@pytest.mark.slow()
 def test_search_loc_to_mineral(
     mineral_alignment_handler,
     mineral_prompt_handler_v0,
