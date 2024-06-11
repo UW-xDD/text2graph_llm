@@ -1,0 +1,29 @@
+services:
+  ollama:
+    container_name: ollama
+    image: ollama/ollama:0.1.32
+    ports:
+      - 11434:11434
+    volumes:
+      - $OLLAMA_MODEL_DIR:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ $GPU_IDX ]
+    restart: always
+  api:
+    image: ghcr.io/jasonlo/text2graph_llm_api:v240513
+    ports:
+      - $API_PORT:4502
+    env_file: .env
+    restart: always
+
+  demo:
+    image: ghcr.io/jasonlo/text2graph_llm_demo:v240513
+    ports:
+      - $DEMO_PORT:8501
+    env_file: .env
+    restart: always

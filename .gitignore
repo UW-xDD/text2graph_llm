@@ -4,7 +4,6 @@ geoarchive_paragraph_ids.pkl
 api/data/
 evals/
 macrostrat_stratname_data.json
-docker-compose-cosmos.yml
 gradio_cached_examples/
 notebooks/*.html
 tmp/
