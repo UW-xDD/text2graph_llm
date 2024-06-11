@@ -141,9 +141,19 @@ def _generate_known_entity_embeddings() -> None:
 
 
 @cache
-def get_alignment_handler(entity_type: EntityType | str) -> AlignmentHandler:
-    """Get alignment handler for a given entity type."""
+def get_alignment_handler(
+    entity_type: EntityType | str, device: str = "cpu"
+) -> AlignmentHandler:
+    """Get alignment handler for a given entity type.
+
+    Usage:
+    get_alignment_handler(EntityType.MINERAL)
+    get_alignment_handler("mineral")  # Same as above
+
+    get_alignment_handler(EntityType.STRAT_NAME)
+    get_alignment_handler("strat_name")  # Same as above
+    """
 
     if isinstance(entity_type, str):
         entity_type = EntityType(entity_type)
-    return AlignmentHandler.load(entity_type=entity_type)
+    return AlignmentHandler.load(entity_type=entity_type, device=device)
