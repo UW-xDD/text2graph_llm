@@ -55,12 +55,23 @@ For convenient, you can use this [notebook](notebooks/users/quickstart_api.ipynb
 
 ## Instructions to developers
 
-Steps to setup environment:
+**Steps to setup environment:**
 
 1. Open the project in VSCode.
 2. Press `F1`, select `Reopen in Container` to set up the dev environment using the [dev-container](.devcontainer/devcontainer.json).
 3. Copy the `.env` file from the shared Google Drive to the project root.
 4. Copy the extracted graph cache data from Google Drive to `app_data/`.
 5. Run `docker-compose up` in bash to deploy locally.
+
+**Running Batch Inference on CHTC:**
+
+1. **Update `text2graph_llm_chtc` Container**: Ensure the base package is updated and pushed to ghcr.io. See the [package script](scripts/package.sh) for details.
+2. **Create ID Pickle**: Ensure the data package storing the document IDs (e.g., `./chtc/geoarchive_paragraph_ids.pkl`) is up-to-date.
+3. **Add .env File**: Ensure `./chtc/.env` contains the required credentials. See this [example](chtc/example.env).
+4. **Initialize Turso DB**: Run `hard_reset` to initialize Turso DB in `./chtc/db.py`.
+5. **Login to CHTC Submit Node**: Login to your CHTC submit node (e.g., `ap2001.chtc.wisc.edu`).
+6. **Update Test Job Container Name**: Update the container name in the test job [here](chtc/debug_job.sub) and run `condor_submit`.
+7. **Verify Turso Data Reception**: Ensure Turso is properly receiving data.
+8. **Submit Full Job**: Submit the job using this [job file](chtc/job.sub) and update the Docker container in this file.
 
 </details>
