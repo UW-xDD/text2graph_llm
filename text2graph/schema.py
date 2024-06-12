@@ -14,7 +14,8 @@ from typing_extensions import Annotated
 from typing import Any
 
 from text2graph import macrostrat
-from text2graph.geolocation.geocode import get_gps, RateLimitedClient
+from text2graph.geolocation.geocode import get_gps
+from text2graph.apiutils import RateLimitedClient
 from text2graph.geolocation.macrostrat import StratNameGPSLookup
 
 
@@ -130,10 +131,10 @@ class Stratigraphy(BaseModel):
     lon: float | None = None
     provenance: Provenance | None = None
 
-    async def hydrate(self) -> None:
+    async def hydrate(self, client: httpx.AsyncClient) -> None:
         """Hydrate Stratigraphy from macrostrat."""
         try:
-            hit = await macrostrat.get_strat_records(self.strat_name, exact=False)
+            hit = await macrostrat.get_strat_records(self.strat_name, exact=False, client=client)
             hit = hit[0]
         except (ValueError, IndexError):
             logging.info(f"No records found for stratigraphy '{self.strat_name}'")
@@ -224,10 +225,10 @@ class GraphOutput(BaseModel):
 
     triplets: list[RelationshipTriplet]
 
-    async def hydrate(self, client: RateLimitedClient) -> None:
+    async def hydrate(self, object_client: RateLimitedClient, subject_client: RateLimitedClient) -> None:
         """Hydrate all objects in the graph."""
 
         await asyncio.gather(
-            *[triplet.subject.hydrate(client=client) for triplet in self.triplets],
-            *[triplet.object.hydrate() for triplet in self.triplets],
+            *[triplet.subject.hydrate(client=subject_client) for triplet in self.triplets],
+            *[triplet.object.hydrate(client=object_client) for triplet in self.triplets],
         )

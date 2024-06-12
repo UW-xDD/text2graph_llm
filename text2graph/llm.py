@@ -236,7 +236,8 @@ async def post_process(
     output = GraphOutput(triplets=safe_triplets)
     if hydrate:
         await output.hydrate(
-            client=RateLimitedClient(interval=1.5, count=1, timeout=30)
+            object_client=RateLimitedClient(interval=0.1, count=1, timeout=30),
+            subject_client=RateLimitedClient(interval=1.5, count=1, timeout=30)
         )
     return output
 

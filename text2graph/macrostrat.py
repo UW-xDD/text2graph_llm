@@ -5,6 +5,8 @@ import re
 import httpx
 import requests
 
+from text2graph.apiutils import sanitize_string
+
 BASE_URL = "https://macrostrat.org/api"
 
 
@@ -77,36 +79,38 @@ def get_known_entities() -> dict:
     }
 
 
-async def get_strat_records(strat_name: str, exact: bool = False) -> list[dict]:
+async def get_strat_records(strat_name: str, client: httpx.AsyncClient, exact: bool = False) -> list[dict]:
     """Get the records for a given stratigraphic name."""
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{BASE_URL}/defs/strat_names?strat_name={strat_name}"
-        )
-        response.raise_for_status()
-        macrostrat_version = response.json()["success"]["v"]
-        matches = response.json()["success"]["data"]
-        for match in matches:
-            match["macrostrat_version"] = macrostrat_version
-        if exact:
-            matches = [match for match in matches if match["strat_name"] == strat_name]
-        if not matches:
-            logging.warning(f"No stratigraphic name found for '{strat_name}'")
+    sanitized_stratname = sanitize_string(strat_name)
+    response = await client.get(
+        f"{BASE_URL}/defs/strat_names?strat_name={sanitized_stratname}"
+    )
+    response.raise_for_status()
+    macrostrat_version = response.json()["success"]["v"]
+    matches = response.json()["success"]["data"]
+    for match in matches:
+        match["macrostrat_version"] = macrostrat_version
+    if exact:
+        matches = [match for match in matches if match["strat_name"] == sanitized_stratname]
+    if not matches:
+        logging.warning(f"No stratigraphic name found for {strat_name=}, {sanitized_stratname=}")
     return matches
 
 
 async def get_lith_records(lith_name: str, exact: bool = False) -> list[dict]:
     """Get the records for a given lithology name."""
 
+    santitized_lith_name = sanitize_string(lith_name)
+
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{BASE_URL}/defs/lithologies?lith={lith_name}")
+        response = await client.get(f"{BASE_URL}/defs/lithologies?lith={santitized_lith_name}")
         response.raise_for_status()
         matches = response.json()["success"]["data"]
         if exact:
-            matches = [match for match in matches if match["name"] == lith_name]
+            matches = [match for match in matches if match["name"] == santitized_lith_name]
         if not matches:
-            logging.warning(f"No lithology found for '{lith_name}'")
+            logging.warning(f"No lithology found for {lith_name=}, {santitized_lith_name=}")
     return matches
 
 

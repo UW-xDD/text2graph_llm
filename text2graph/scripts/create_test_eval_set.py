@@ -2,16 +2,17 @@ import json
 import typer
 import sqlite3
 import asyncio
-import pandas as pd
+import numpy as np
 import aiofiles as aiof
 from pathlib import Path
 from dotenv import load_dotenv
 from typing import Any, Generator
-from tqdm.auto import tqdm
-from pydantic import ValidationError, BaseModel
+from tqdm.autonotebook import tqdm
+from tqdm.asyncio import tqdm_asyncio
+from pydantic import ValidationError
 
 from text2graph.schema import GraphOutput, RelationshipTriplet
-from text2graph.geolocation.geocode import RateLimitedClient
+from text2graph.apiutils import RateLimitedClient
 
 
 load_dotenv()
@@ -26,41 +27,61 @@ COLUMN_LOOKUP = {
 }
 
 
-async def run_all_triplets(filtered_graphoutputs, client, output_path):
-    exceptions = await asyncio.gather(
-        *[hydrate_and_split_one_graphoutput(
-            go_idx=i,
-            output_path=output_path,
-            go=go,
-            client=client
-        ) 
-        for i, go in enumerate(filtered_graphoutputs)],
-        return_exceptions=True
-    )
-    return exceptions
-
-
-def main(db_path: Path, output_path: Path, limit: int | None = None) -> None:
+def main(
+    db_path: Path, 
+    output_path: Path,
+    geoloc_limit: int| None = None,
+    limit: int | None = None
+) -> None:
+    """
+    fetch all triplets from sqllite database of graphoutputs, hydrate (geolocate with GeoCode API, and Macrostrat)
+    all triplets, write triplets to disk. those with location information as keepers, those without - nonkeepers.
+    :param db_path: Path to sqllitedb on disk
+    :param output_path: dir to write results to
+    :geoloc_limit: whatever number of free gelocation api calls you have left this month
+    :limit: max number of graphouts to pull from the db on disk
+    """
     if not db_path:
         db_path = Path("data/data_dump_240430.db")
     cur = get_db_cursor(db_path)
-    # triplet_db_tuples = get_all_db_table_tuples(cur)
-    # if limit:
-    #     triplet_db_tuples = triplet_db_tuples[:limit]
-    for triplets_chunk in get_all_db_table_tuples_chunks(cur=cur, chunksize=10000):
-        filtered_graphoutputs, _ = filter_triplet_db_tuples(triplets_chunk)
-        client=RateLimitedClient(interval=1.5)
-        _ = asyncio.run(run_all_triplets(filtered_graphoutputs, client, output_path))
-    # keepers, notkeepers = asyncio.run(hydrate_and_split_triplets(
-    # filtered_graphoutputs=filtered_graphoutputs,
-    #client=RateLimitedClient(interval=1.5)
-    #    )
-    #)
+    chunksize = 10_000
+    if limit < chunksize:
+        raise ValueError(f"{limit=} must be >= {chunksize}")
+    db_triplet_chunks = get_all_db_table_tuples_chunks(cur=cur, chunksize=chunksize, limit=limit)
+    total_triplet_count = 0
+    object_client=RateLimitedClient(interval=0.1, count=1, timeout=30)  # Daven suggested macrostrat api rate limit
+    subject_client=RateLimitedClient(interval=1.5, count=1, timeout=30)  # max geocode api rate is 1/s, use 1.5 to be safe
+    for i, triplets_chunk in enumerate(db_triplet_chunks):
+        print(f"processing batch of triplets above #{total_triplet_count}")
+        filtered_graphoutputs, _ = filter_triplet_db_tuples(triplets_chunk)    
+        triplets_in_batch_count = len(filtered_graphoutputs)
+        filename_offset = i * chunksize
 
-    #for data in [keepers]: #, notkeepers]:
-    #    print(f"dumping {len(data)} triplets to {output_path}")
-    #    with open(output_path, "w") as f:
-    #        json.dump(data, f)
+        if total_triplet_count + triplets_in_batch_count >= geoloc_limit:
+            filtered_graphoutputs = filtered_graphoutputs[:geoloc_limit-total_triplet_count]
+            _ = asyncio.run(
+                    run_all_triplets(
+                        filtered_graphoutputs=filtered_graphoutputs, 
+                        object_client=object_client, 
+                        subject_client=subject_client,
+                        output_path=output_path, 
+                        filename_offset=filename_offset,
+                    )
+                )
+            print(f"Stopping! Hit specified geoloc limit: {geoloc_limit}")
+            break
+
+        else:    
+            _ = asyncio.run(
+                    run_all_triplets(
+                        filtered_graphoutputs=filtered_graphoutputs, 
+                        object_client=object_client,
+                        subject_client=subject_client, 
+                        output_path=output_path, 
+                        filename_offset=filename_offset,
+                    )
+                )
+        total_triplet_count += triplets_in_batch_count
 
 
 def get_db_cursor(db_path: str) -> sqlite3.Cursor:
@@ -77,7 +98,8 @@ def get_all_db_table_tuples(
 
 def get_all_db_table_tuples_chunks(
     cur: sqlite3.Cursor,
-    chunksize=None
+    chunksize: int,
+    limit: int | None
 ) -> Generator[list[tuple[Any, Any, Any, Any, Any]], None, None]:
     """
     Return generator for reading consecutive chunks of data from a table as
@@ -86,14 +108,19 @@ def get_all_db_table_tuples_chunks(
         Number of rows to return in each call to the generator.
     """
 
+    if not limit:
+        limit = np.inf
+
     offset = 0
-    while True:
+    while offset <= limit:
         query = f"SELECT * FROM triplets LIMIT {chunksize} OFFSET {offset}" 
         result = cur.execute(query).fetchall()
         if len(result):
-    	    yield result
+            if offset + len(result) >= limit:
+                yield result[:limit-offset]
+            yield result
         else:
-    	    raise StopIteration
+            raise StopIteration
         offset += chunksize
 
 
@@ -130,17 +157,31 @@ def filter_triplet_db_tuples(
     return filtered_graphoutputs, validation_error_indexes
 
 
+async def run_all_triplets(filtered_graphoutputs, object_client, subject_client, output_path, filename_offset) -> None:
+    await tqdm_asyncio.gather(
+        *[hydrate_and_split_one_graphoutput(
+            go_idx=i+filename_offset,
+            output_path=output_path,
+            go=go,
+            object_client=object_client,
+            subject_client=subject_client
+        ) 
+        for i, go in enumerate(filtered_graphoutputs)]
+    )
+
+
 async def hydrate_and_split_one_graphoutput(
     go_idx: int,
     output_path: Path,
     go: GraphOutput,
-    client: RateLimitedClient
+    object_client: RateLimitedClient,
+    subject_client: RateLimitedClient
 ) -> None:
     keeper_triplets = []
     not_keeper_triplets = []
     keeper_counts = []
     not_keeper_counts = []
-    await go.hydrate(client=client)
+    await go.hydrate(object_client=object_client, subject_client=subject_client)
     for triplet in go.triplets:
         c = triplet.model_dump()
         if triplet.object.t_units and triplet.object.t_units >= 1:
