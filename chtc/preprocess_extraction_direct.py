@@ -9,10 +9,10 @@ import db
 import vllm
 from tqdm import tqdm
 
-from text2graph.alignment import AlignmentHandler
+from text2graph.alignment import get_alignment_handler
 from text2graph.askxdd import get_weaviate_client
 from text2graph.llm import post_process
-from text2graph.prompt import StratPromptHandlerV3
+from text2graph.prompt import get_prompt_handler
 from text2graph.schema import Provenance
 
 
@@ -41,14 +41,16 @@ class BatchInferenceRunner:
         self.batch_size = batch_size
         self.infrastructure_loaded = False
 
-    def load_infrastructure(self):
+    def load_infrastructure(
+        self, prompt_handler_name: str, alignment_handler_name: str
+    ):
         """Load the infrastructure for the runner."""
 
         # Delay loading of the infrastructure to allow quick fail (e.g., batch already processed)
         self.weaviate_client = get_weaviate_client()
-        self.prompt_handler = StratPromptHandlerV3()
-        self.alignment_handler = AlignmentHandler.load(
-            name="all-MiniLM-L6-v2", device="cuda"
+        self.prompt_handler = get_prompt_handler(prompt_handler_name)
+        self.alignment_handler = get_alignment_handler(
+            alignment_handler_name, device="cuda"
         )
         self.llm = vllm.LLM(
             model="TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ",
@@ -76,7 +78,9 @@ class BatchInferenceRunner:
             return
 
         if not self.infrastructure_loaded:
-            self.load_infrastructure()
+            self.load_infrastructure(
+                prompt_handler_name="mineral_v0", alignment_handler_name="mineral"
+            )
 
         # Mini-batching
         while len(batch_ids) > 0:

@@ -2,7 +2,7 @@ JobBatchName            = "LLM batch inference (vllm + Turso)"
 
 # Environment
 universe                = docker
-docker_image            = ghcr.io/jasonlo/text2graph_llm_chtc:dev240506r2
+docker_image            = ghcr.io/jasonlo/text2graph_llm_chtc:v240611
 docker_network_type     = host
 
 # Artefact
@@ -26,7 +26,7 @@ request_memory          = 32GB
 request_disk            = 50GB
 request_gpus            = 1
 require_gpus            = GlobalMemoryMb >= 30000
-Requirements            = (Target.CUDADriverVersion >= 10.1)
+Requirements            = (Target.CUDADriverVersion >= 10.1)  && (TARGET.GPUs_DeviceName =?= "NVIDIA A100-SXM4-80GB")
 +WantGPULab             = true
 +GPUJobLength           = "short"
 
