@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
-from datetime import timezone
-UTC = timezone.utc
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 import httpx
-from pydantic import AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, field_serializer
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    BeforeValidator,
+    Field,
+    PlainSerializer,
+    field_serializer,
+)
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 from typing import Any
@@ -19,7 +24,9 @@ from text2graph.apiutils import RateLimitedClient
 from text2graph.geolocation.macrostrat import StratNameGPSLookup
 
 
+UTC = timezone.utc
 SerializableUUID = Annotated[UUID, PlainSerializer(lambda x: str(x), return_type=str)]
+
 
 class Provenance(BaseModel):
     """class for collecting data source information"""
@@ -29,12 +36,10 @@ class Provenance(BaseModel):
     source_url: str | None = None
     source_version: str | int | float | None = None
     requested: datetime = datetime.now(UTC)
-    additional_values: dict[str, Any] = Field(
-        default_factory=dict
-    )
+    additional_values: dict[str, Any] = Field(default_factory=dict)
     previous: Provenance | None = None
 
-    @field_serializer('requested')
+    @field_serializer("requested")
     def serialize_id(self, requested: datetime, _info):
         return requested.isoformat()
 
@@ -134,7 +139,9 @@ class Stratigraphy(BaseModel):
     async def hydrate(self, client: httpx.AsyncClient) -> None:
         """Hydrate Stratigraphy from macrostrat."""
         try:
-            hit = await macrostrat.get_strat_records(self.strat_name, exact=False, client=client)
+            hit = await macrostrat.get_strat_records(
+                self.strat_name, client=client, exact=False
+            )
             hit = hit[0]
         except (ValueError, IndexError):
             logging.info(f"No records found for stratigraphy '{self.strat_name}'")
@@ -225,10 +232,18 @@ class GraphOutput(BaseModel):
 
     triplets: list[RelationshipTriplet]
 
-    async def hydrate(self, object_client: RateLimitedClient, subject_client: RateLimitedClient) -> None:
+    async def hydrate(
+        self, object_client: RateLimitedClient, subject_client: RateLimitedClient
+    ) -> None:
         """Hydrate all objects in the graph."""
 
         await asyncio.gather(
-            *[triplet.subject.hydrate(client=subject_client) for triplet in self.triplets],
-            *[triplet.object.hydrate(client=object_client) for triplet in self.triplets],
+            *[
+                triplet.subject.hydrate(client=subject_client)
+                for triplet in self.triplets
+            ],
+            *[
+                triplet.object.hydrate(client=object_client)
+                for triplet in self.triplets
+            ],
         )

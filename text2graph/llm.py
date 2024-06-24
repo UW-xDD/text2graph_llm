@@ -237,7 +237,7 @@ async def post_process(
     if hydrate:
         await output.hydrate(
             object_client=RateLimitedClient(interval=0.1, count=1, timeout=30),
-            subject_client=RateLimitedClient(interval=1.5, count=1, timeout=30)
+            subject_client=RateLimitedClient(interval=1.5, count=1, timeout=30),
         )
     return output
 
