@@ -15,6 +15,11 @@ DB_ROW_TUPLES_COLUMN_LOOKUP = {
 def load_all_rows_from_sqlite_db(
     db_path: str,
 ) -> list[tuple[Any, Any, Any, Any, Any, Any]]:
+    """
+    Load all rows from a sqlite db.
+    :param db_path: Path to the sqlite db having a table named 'triplets' with six columns.
+    :return: List of tuples where each tuple is a row from the sqlite db.
+    """
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM triplets")

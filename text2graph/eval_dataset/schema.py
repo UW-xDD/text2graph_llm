@@ -54,6 +54,7 @@ class SQuADStratPipelineQuestion(pydantic.BaseModel):
     subject_lat: float | None = None
     subject_lon: float | None = None
     augmented_prompt: str | None = None
+    impossible: bool | None = None
 
     def create_augmented_prompt(
         self, prompt_handler: PromptHandler | None = None, clobber=False
