@@ -439,3 +439,62 @@ async def fast_llm_graph_from_search(
 
     # TTL returns
     return [to_ttl(graph) for graph in graphs]
+
+
+def ask_llm_raw(
+    prompt: str,
+    model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "mixtral",
+    temperature: float = 0.0,
+    system_prompt: str | None = None,
+) -> str:
+    """
+    prompt a model with specific prompt and system prompt return the raw output.
+    :param prompt: The prompt to send to the model.
+    :param model: The model to use. Can be a string or an enum.
+    :param temperature: The temperature to use when sampling from the model.
+    :param system_prompt: The system prompt to send to the model.
+    :return: The raw string output from the model.
+    """
+
+    # Convert model string to enum
+    if isinstance(model, str):
+        model = to_model(model)
+
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+
+    use_chtc = int(os.getenv("USE_LLM_QUEUE", 0))
+
+    if isinstance(model, OpenSourceModel):
+        if use_chtc:
+            raw_output = query_llm_queue(model, messages, temperature)
+        else:
+            raw_output = query_local_ollama(model, messages, temperature)
+
+    if isinstance(model, OpenAIModel):
+        raw_output = query_openai(model, messages, temperature)
+
+    if isinstance(model, AnthropicModel):
+        raw_output = query_anthropic(model, messages, temperature)
+
+    return raw_output
+
+
+def ask_llm_for_possible_strat_names(context: str, model: OpenSourceModel) -> list[str]:
+    """Ask LLM for possible stratigraphic names in the context."""
+    system_prompt = """You are a geology expert and you are expert in understanding mining reports and technical documents. You will extract stratigraphic names from the given TEXT. Return nothing if there are no stratigraphic names present in the TEXT. Do not return place-names, locations, or geological features. Do not provide explanations or context."""
+    user_prompt = f"Extract the (in)formal stratigraphic names mentioned in this TEXT: {context}, Use JSON format."
+    raw_output = ask_llm_raw(
+        prompt=user_prompt, model=model, system_prompt=system_prompt, temperature=0.0
+    )
+    try:
+        output_dict = json.loads(raw_output)
+        possible_formal_and_informal_strat_names = output_dict.get(
+            "stratigraphic_names", []
+        )
+    except Exception as e:
+        logging.warning(f"Error encoding llm output as json: {e}")
+        possible_formal_and_informal_strat_names = []
+    return possible_formal_and_informal_strat_names
