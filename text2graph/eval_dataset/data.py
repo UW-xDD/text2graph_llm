@@ -80,10 +80,13 @@ def squadquestions_from_json(
 def label_impossible(
     questions=list[SQuADStratPipelineQuestion],
 ) -> list[SQuADStratPipelineQuestion]:
+    """
+    set impossible flag True on questions that are missing subject, predicate, or object, else set to False
+    """
     labelled_questions = []
     impossible_count = 0
     possible_count = 0
-    for i, q in enumerate(questions):
+    for q in questions:
         if not q.object or not q.subject or not q.predicate:
             q.impossible = True
             q.object = None
