@@ -196,15 +196,55 @@ def to_triplet(
     )
 
 
+def convert_informal_to_formal(
+    safe_triplets: list[RelationshipTriplet],
+) -> list[RelationshipTriplet]:
+    """
+    Convert informal stratigraphic names to formal stratigraphic names in the triplets.
+    :param safe_triplets: List of RelationshipTriplet objects.
+    :return: List of RelationshipTriplet objects with formal stratigraphic names.
+    """
+    # create a map from informal strat names to formal strat names
+    informal_to_formal_map = {}
+    all_strat_names = set([triplet.object.name for triplet in safe_triplets])
+    for strat_name in all_strat_names:
+        for other_strat_name in all_strat_names:
+            if (
+                strat_name in other_strat_name and strat_name != other_strat_name
+            ):  # if stratname is a substring of another stratname, then it is informal
+                informal_to_formal_map[strat_name] = other_strat_name
+
+    logging.info(f"informal_to_formal_map: {informal_to_formal_map}")
+
+    # replace informal strat names with formal strat names
+    for i, triplet in enumerate(safe_triplets):
+        if triplet.object.name in informal_to_formal_map:
+            triplet_dict = triplet.model_dump()
+            triplet_dict["object"]["name"] = informal_to_formal_map[triplet.object.name]
+            safe_triplets[i] = RelationshipTriplet(**triplet_dict)
+
+    return safe_triplets
+
+
 async def post_process(
     raw_llm_output: str,
     prompt_handler: PromptHandler,
     alignment_handler: AlignmentHandler | None = None,
     threshold: float = 0.95,
     hydrate: bool = True,
+    convert_informal: bool = True,
     provenance: Provenance | None = None,
 ) -> GraphOutput:
-    """Post-process raw output to GraphOutput model."""
+    """
+    Post-process raw output to GraphOutput model.
+    :param raw_llm_output: Raw output from LLM.
+    :param prompt_handler: PromptHandler object.
+    :param alignment_handler: AlignmentHandler object.
+    :param threshold: Threshold for alignment.
+    :param hydrate: Hydrate the output using API calls to macrostrat and geolocate
+    :param convert_informal: Convert informal stratigraphic names to formal names.
+    :param provenance: Provenance object.
+    """
     triplets = json.loads(raw_llm_output)
 
     # Handle different response formats form different LLMs
@@ -230,6 +270,9 @@ async def post_process(
     except KeyError:
         logging.info(f"unexpected triplet format: {triplets}")
         raise ValueError("Unexpected triplet format")
+
+    if convert_informal:
+        safe_triplets = convert_informal_to_formal(safe_triplets)
 
     if alignment_handler:
         for triplet in safe_triplets:
@@ -314,6 +357,7 @@ async def ask_llm(
     return await post_process(
         raw_llm_output=raw_output,
         prompt_handler=prompt_handler,
+        convert_informal=True,
         alignment_handler=alignment_handler,
         hydrate=hydrate,
         provenance=ask_llm_provenance,
@@ -439,3 +483,62 @@ async def fast_llm_graph_from_search(
 
     # TTL returns
     return [to_ttl(graph) for graph in graphs]
+
+
+def ask_llm_raw(
+    prompt: str,
+    model: OpenSourceModel | OpenAIModel | AnthropicModel | str = "mixtral",
+    temperature: float = 0.0,
+    system_prompt: str | None = None,
+) -> str:
+    """
+    prompt a model with specific prompt and system prompt return the raw output.
+    :param prompt: The prompt to send to the model.
+    :param model: The model to use. Can be a string or an enum.
+    :param temperature: The temperature to use when sampling from the model.
+    :param system_prompt: The system prompt to send to the model.
+    :return: The raw string output from the model.
+    """
+
+    # Convert model string to enum
+    if isinstance(model, str):
+        model = to_model(model)
+
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+
+    use_chtc = int(os.getenv("USE_LLM_QUEUE", 0))
+
+    if isinstance(model, OpenSourceModel):
+        if use_chtc:
+            raw_output = query_llm_queue(model, messages, temperature)
+        else:
+            raw_output = query_local_ollama(model, messages, temperature)
+
+    if isinstance(model, OpenAIModel):
+        raw_output = query_openai(model, messages, temperature)
+
+    if isinstance(model, AnthropicModel):
+        raw_output = query_anthropic(model, messages, temperature)
+
+    return raw_output
+
+
+def ask_llm_for_possible_strat_names(context: str, model: OpenSourceModel) -> list[str]:
+    """Ask LLM for possible stratigraphic names in the context."""
+    system_prompt = """You are a geology expert and you are expert in understanding mining reports and technical documents. You will extract stratigraphic names from the given TEXT. Return nothing if there are no stratigraphic names present in the TEXT. Do not return place-names, locations, or geological features. Do not provide explanations or context."""
+    user_prompt = f"Extract the (in)formal stratigraphic names mentioned in this TEXT: {context}, Use JSON format."
+    raw_output = ask_llm_raw(
+        prompt=user_prompt, model=model, system_prompt=system_prompt, temperature=0.0
+    )
+    try:
+        output_dict = json.loads(raw_output)
+        possible_formal_and_informal_strat_names = output_dict.get(
+            "stratigraphic_names", []
+        )
+    except Exception as e:
+        logging.warning(f"Error encoding llm output as json: {e}")
+        possible_formal_and_informal_strat_names = []
+    return possible_formal_and_informal_strat_names
