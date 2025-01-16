@@ -9,6 +9,12 @@ from text2graph.macrostrat import (
 from text2graph.usgs import CRITICAL_MINERALS
 
 
+# dir prompt
+# abstract higher levle prompt stuff into core/base.py
+# create two modules in that dir: prompt_simple, and rename dynamic_prompt to prompt_llm
+#
+
+
 class PromptHandler(ABC):
     """Abstract class for prompt handler.
 

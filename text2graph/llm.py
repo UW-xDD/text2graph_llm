@@ -233,6 +233,7 @@ async def post_process(
     threshold: float = 0.95,
     hydrate: bool = True,
     convert_informal: bool = True,
+    remove_no_strat_name_triplets: bool = True,
     provenance: Provenance | None = None,
 ) -> GraphOutput:
     """
@@ -273,6 +274,9 @@ async def post_process(
 
     if convert_informal:
         safe_triplets = convert_informal_to_formal(safe_triplets)
+
+    if remove_no_strat_name_triplets:
+        safe_triplets = [triplet for triplet in safe_triplets if triplet.object.name]
 
     if alignment_handler:
         for triplet in safe_triplets:

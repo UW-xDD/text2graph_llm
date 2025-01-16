@@ -20,7 +20,8 @@ def query_text_to_graph_api(text) -> dict[str, any]:
     data = {
         "text": text,
         "model": "mixtral",
-        "extraction_pipeline": "LOCATION_STRATNAME",
+        "extraction_pipeline": "Location to Stratigraphy",
+        # "extraction_pipeline": "LOCATION_STRATNAME",
     }
     response = requests.post(API_ENDPOINT, headers=headers, json=data)
     response.raise_for_status()

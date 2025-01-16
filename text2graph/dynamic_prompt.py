@@ -7,6 +7,12 @@ class StratPromptHandlerV4(PromptHandler):
 
     1. Simplify relationship without mentioning subject and object, instead we use location and stratigraphic name directly.
     2. Add additional LLM query step to get possible formal and informal stratigraphic names from the text.
+    :param model: LLM model name.
+
+    :method get_known_entities: Get known stratigraphic names from the text using llm prompt
+    :method get_system_prompt: returns system prompt to use querying model for extracting relationship triplets
+    :method user_prompt: returns user prompt to extract relationship triplets from the given text
+
     """
 
     def __init__(self, model: str):
